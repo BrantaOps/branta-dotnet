@@ -31,9 +31,9 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return await response.Content.ReadFromJsonAsync<List<Payment>>() ?? [];
     }
 
-    public async Task<List<Payment>> GetZKPaymentAsync(string address, string secret)
+    public async Task<List<Payment>> GetZKPaymentAsync(string address, string secret, BrantaClientOptions? options = null)
     {
-        var payments = await GetPaymentsAsync(address);
+        var payments = await GetPaymentsAsync(address, options);
 
         foreach (var payment in payments)
         {
