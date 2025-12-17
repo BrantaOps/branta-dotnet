@@ -1,4 +1,5 @@
 ﻿using Branta.Classes;
+using Branta.Extensions;
 using Branta.V2.Models;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
@@ -83,7 +84,9 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     private void ConfigureClient(HttpClient httpClient, BrantaClientOptions? options)
     {
-        httpClient.BaseAddress = new Uri(options?.BaseUrl ?? _defaultOptions?.BaseUrl ?? throw new Exception("Branta: BaseUrl is a required option."));
+        var baseUrl = options?.BaseUrl ?? _defaultOptions?.BaseUrl ?? throw new Exception("Branta: BaseUrl is a required option.");
+        httpClient.BaseAddress = new Uri(baseUrl.GetUrl());
+
         httpClient.Timeout = options?.Timeout ?? _defaultOptions?.Timeout ?? throw new Exception("Branta: Timeout is a required option.");
     }
 }
