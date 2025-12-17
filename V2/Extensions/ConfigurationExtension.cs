@@ -1,16 +1,21 @@
-﻿using Branta.V2.Classes;
+﻿using Branta.Classes;
+using Branta.V2.Classes;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Branta.V2.Extensions;
 
 public static class ConfigurationExtension
 {
-    public static IServiceCollection ConfigureBrantaServices(this IServiceCollection services, string baseUrl = "https://guardrail.branta.pro")
+    public static IServiceCollection ConfigureBrantaServices(this IServiceCollection services, BrantaClientOptions? defaultOptions = null)
     {
-        services.AddHttpClient<BrantaClient>(client =>
+        services.AddHttpClient();
+
+        if (defaultOptions != null)
         {
-            client.BaseAddress = new Uri(baseUrl);
-        });
+            services.AddSingleton(Options.Create(defaultOptions));
+        }
+        services.AddScoped<BrantaClient>();
 
         return services;
     }

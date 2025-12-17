@@ -25,6 +25,13 @@ using Branta.V2.Extensions;
 
 services.ConfigureBrantaServices();
 
+// OR with default options set
+
+services.ConfigureBrantaServices(new BrantaClientOptions() {
+    BaseUrl = "",
+    DefaultApiKey = ""
+});
+
 // Use within your Services
 using Branta.V2.Classes;
 

@@ -6,7 +6,7 @@ public class Payment
 {
     public string? Description { get; set; }
 
-    public required List<Destination> Destinations { get; set; }
+    public required List<Destination> Destinations { get; set; } = [];
 
     [JsonPropertyName("created_at")]
     public DateTime CreatedDate { get; set; }
@@ -15,8 +15,8 @@ public class Payment
 
     public string? Metadata { get; set; }
 
-    public required string Platform { get; set; }
+    public string? Platform { get; set; }
 
     [JsonPropertyName("platform_logo_url")]
-    public required string PlatformLogoUrl { get; set; }
+    public string? PlatformLogoUrl { get; set; }
 }
