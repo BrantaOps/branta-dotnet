@@ -1,7 +1,9 @@
 ﻿using Branta.Classes;
+using Branta.Exceptions;
 using Branta.Extensions;
 using Branta.V2.Models;
 using Microsoft.Extensions.Options;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -60,6 +62,11 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
         var response = await httpClient.PostAsJsonAsync("/v2/payments", payment, cancellationToken);
+
+        if (response.StatusCode != HttpStatusCode.Created)
+        {
+            throw new BrantaPaymentException(response.StatusCode.ToString());
+        }
 
         var responseBody = await response.Content.ReadAsStringAsync();
 
