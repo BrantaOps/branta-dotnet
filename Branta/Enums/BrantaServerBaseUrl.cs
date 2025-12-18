@@ -10,6 +10,6 @@ public enum BrantaServerBaseUrl
     [Url("https://guardrail.branta.pro")]
     Production = 1,
 
-    [Url("http://localhost:5000")]
+    [Url("http://localhost:3000")]
     Localhost = 2,
 }
