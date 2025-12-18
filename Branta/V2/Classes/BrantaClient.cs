@@ -56,7 +56,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         var httpClient = _httpClientFactory.CreateClient();
         ConfigureClient(httpClient, options);
 
-        var apiKey = (options?.DefaultApiKey ?? _defaultOptions?.DefaultApiKey) ?? throw new Exception("Branta API Key is required to post payments.");
+        var apiKey = (options?.DefaultApiKey ?? _defaultOptions?.DefaultApiKey) ?? throw new BrantaPaymentException(HttpStatusCode.Unauthorized.ToString());
 
         httpClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
