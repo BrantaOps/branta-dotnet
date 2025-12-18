@@ -50,7 +50,6 @@ public class BrantaClientTests
         _defaultOptions = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
-            Timeout = TimeSpan.FromSeconds(30),
             DefaultApiKey = "test-api-key"
         };
         _optionsMock.Setup(x => x.Value).Returns(_defaultOptions);
@@ -105,8 +104,7 @@ public class BrantaClientTests
         var address = "test-address";
         var customOptions = new BrantaClientOptions
         {
-            BaseUrl = BrantaServerBaseUrl.Production,
-            Timeout = TimeSpan.FromSeconds(60)
+            BaseUrl = BrantaServerBaseUrl.Production
         };
         var httpClient = SetupHttpClient(HttpStatusCode.OK, "[]");
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
@@ -114,7 +112,6 @@ public class BrantaClientTests
         await _sut.GetPaymentsAsync(address, customOptions);
 
         Assert.Equal(new Uri(BrantaServerBaseUrl.Production.GetUrl()), httpClient.BaseAddress);
-        Assert.Equal(TimeSpan.FromSeconds(60), httpClient.Timeout);
     }
 
     [Fact]
@@ -173,7 +170,6 @@ public class BrantaClientTests
         var optionsWithoutApiKey = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Production,
-            Timeout = TimeSpan.FromSeconds(30),
             DefaultApiKey = null
         };
         _optionsMock.Setup(x => x.Value).Returns(optionsWithoutApiKey);
@@ -192,7 +188,6 @@ public class BrantaClientTests
         var customOptions = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Production,
-            Timeout = TimeSpan.FromSeconds(30),
             DefaultApiKey = "custom-api-key"
         };
         var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
