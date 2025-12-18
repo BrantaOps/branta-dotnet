@@ -17,7 +17,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<List<Payment>> GetPaymentsAsync(string address, BrantaClientOptions? options = null)
+    public async Task<List<Payment>> GetPaymentsAsync(string address, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
         var httpClient = _httpClientFactory.CreateClient();
         ConfigureClient(httpClient, options);
@@ -29,12 +29,12 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
             return [];
         }
 
-        return await response.Content.ReadFromJsonAsync<List<Payment>>() ?? [];
+        return await response.Content.ReadFromJsonAsync<List<Payment>>(cancellationToken) ?? [];
     }
 
-    public async Task<List<Payment>> GetZKPaymentAsync(string address, string secret, BrantaClientOptions? options = null)
+    public async Task<List<Payment>> GetZKPaymentAsync(string address, string secret, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var payments = await GetPaymentsAsync(address, options);
+        var payments = await GetPaymentsAsync(address, options, cancellationToken);
 
         foreach (var payment in payments)
         {
@@ -49,7 +49,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return payments;
     }
 
-    public async Task<Payment?> AddPaymentAsync(Payment payment, BrantaClientOptions? options = null)
+    public async Task<Payment?> AddPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
         var httpClient = _httpClientFactory.CreateClient();
         ConfigureClient(httpClient, options);
@@ -59,14 +59,14 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         httpClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
-        var response = await httpClient.PostAsJsonAsync("/v2/payments", payment);
+        var response = await httpClient.PostAsJsonAsync("/v2/payments", payment, cancellationToken);
 
         var responseBody = await response.Content.ReadAsStringAsync();
 
         return JsonSerializer.Deserialize<Payment>(responseBody, _jsonOptions);
     }
 
-    public async Task<(Payment?, string)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null)
+    public async Task<(Payment?, string)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
         var secret = Guid.NewGuid().ToString();
 
@@ -77,7 +77,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
             destination.Value = AesEncryption.Encrypt(destination.Value, secret);
         }
 
-        var responsePayment = await AddPaymentAsync(payment, options);
+        var responsePayment = await AddPaymentAsync(payment, options, cancellationToken);
 
         return (responsePayment, secret);
     }
