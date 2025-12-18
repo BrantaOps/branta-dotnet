@@ -24,7 +24,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
         var response = await httpClient.GetAsync($"/v2/payments/{address}");
 
-        if (!response.IsSuccessStatusCode || response?.Content == null)
+        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength == 0)
         {
             return [];
         }
