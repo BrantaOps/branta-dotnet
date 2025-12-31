@@ -55,11 +55,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
     {
         var httpClient = _httpClientFactory.CreateClient();
         ConfigureClient(httpClient, options);
-
-        var apiKey = options?.DefaultApiKey ?? _defaultOptions?.DefaultApiKey;
-
-        httpClient.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+        SetApiKey(httpClient, options);
 
         var response = await httpClient.PostAsJsonAsync("/v2/payments", payment, cancellationToken);
 
@@ -89,9 +85,28 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return (responsePayment, secret);
     }
 
+    public async Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var httpClient = _httpClientFactory.CreateClient();
+        ConfigureClient(httpClient, options);
+        SetApiKey(httpClient, options);
+
+        var response = await httpClient.GetAsync("/v2/api-keys/health-check", cancellationToken);
+
+        return response.IsSuccessStatusCode;
+    }
+
     private void ConfigureClient(HttpClient httpClient, BrantaClientOptions? options)
     {
         var baseUrl = options?.BaseUrl ?? _defaultOptions?.BaseUrl ?? throw new Exception("Branta: BaseUrl is a required option.");
         httpClient.BaseAddress = new Uri(baseUrl.GetUrl());
+    }
+
+    private void SetApiKey(HttpClient httpClient, BrantaClientOptions? options)
+    {
+        var apiKey = options?.DefaultApiKey ?? _defaultOptions?.DefaultApiKey;
+
+        httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
     }
 }
