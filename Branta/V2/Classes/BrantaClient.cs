@@ -59,7 +59,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
         var response = await httpClient.PostAsJsonAsync("/v2/payments", payment, cancellationToken);
 
-        if (response.StatusCode != HttpStatusCode.Created)
+        if (!response.IsSuccessStatusCode)
         {
             throw new BrantaPaymentException(response.StatusCode.ToString());
         }
