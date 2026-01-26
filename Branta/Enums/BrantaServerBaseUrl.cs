@@ -4,7 +4,7 @@ namespace Branta.Enums;
 
 public enum BrantaServerBaseUrl
 {
-    [Url("https://staging.branta.pro")]
+    [Url("https://staging.guardrail.branta.pro")]
     Staging = 0,
 
     [Url("https://guardrail.branta.pro")]

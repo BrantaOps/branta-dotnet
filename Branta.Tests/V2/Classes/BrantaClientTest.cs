@@ -1,5 +1,6 @@
 ﻿using Branta.Classes;
 using Branta.Enums;
+using Branta.Exceptions;
 using Branta.Extensions;
 using Branta.V2.Classes;
 using Branta.V2.Models;
@@ -177,8 +178,8 @@ public class BrantaClientTests
         var httpClient = new HttpClient();
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-        var exception = await Assert.ThrowsAsync<Exception>(() => sut.AddPaymentAsync(payment));
-        Assert.Equal("Branta API Key is required to post payments.", exception.Message);
+        var exception = await Assert.ThrowsAsync<BrantaPaymentException>(() => sut.AddPaymentAsync(payment));
+        Assert.Equal("Unauthorized", exception.Message);
     }
 
     [Fact]
