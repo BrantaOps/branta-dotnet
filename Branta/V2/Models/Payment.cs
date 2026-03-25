@@ -20,5 +20,8 @@ public class Payment
     [JsonPropertyName("platform_logo_url")]
     public string? PlatformLogoUrl { get; set; }
 
+    [JsonPropertyName("verify_url")]
+    public string? VerifyUrl { get; set; }
+
     public string BtcPayServerPluginVersion { get; set; }
 }
