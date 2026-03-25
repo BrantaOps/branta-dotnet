@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -116,6 +117,54 @@ public class BrantaClientTests
     }
 
     [Fact]
+    public async Task GetPaymentsAsync_UrlEncodesAddress()
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsAsync("addr+with+plus");
+
+        Assert.Single(capturedRequests);
+        Assert.Equal("/v2/payments/addr%2Bwith%2Bplus", capturedRequests[0].RequestUri?.AbsolutePath + capturedRequests[0].RequestUri?.Query);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_PlatformLogoUrlDomainMismatch_ThrowsException()
+    {
+        var payments = new List<Payment>
+        {
+            new() {
+                Destinations = [new Destination { Value = "addr" }],
+                PlatformLogoUrl = "https://evil.com/logo.png"
+            }
+        };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var exception = await Assert.ThrowsAsync<BrantaPaymentException>(() => _sut.GetPaymentsAsync("addr"));
+        Assert.Contains("platformLogoUrl domain does not match", exception.Message);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_PlatformLogoUrlSameDomain_ReturnsPayments()
+    {
+        var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl();
+        var payments = new List<Payment>
+        {
+            new() {
+                Destinations = [new Destination { Value = "addr" }],
+                PlatformLogoUrl = $"{baseUrl}/logo.png"
+            }
+        };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetPaymentsAsync("addr");
+
+        Assert.Single(result);
+    }
+
+    [Fact]
     public async Task GetZKPaymentAsync_WithZkDestinations_DecryptsValues()
     {
         var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
@@ -201,6 +250,315 @@ public class BrantaClientTests
         Assert.Equal("custom-api-key", httpClient.DefaultRequestHeaders.Authorization?.Parameter);
     }
 
+    // ── GetPaymentsByQrCodeAsync ──────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("http://localhost:3000/v2/verify/bc1qabc123", "/v2/payments/bc1qabc123")]
+    [InlineData("http://localhost:3000/v2/verify/some-id", "/v2/payments/some-id")]
+    public async Task GetPaymentsByQrCodeAsync_VerifyUrl_CallsGetPaymentsWithId(string qr, string expectedPath)
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync(qr);
+
+        Assert.Equal(expectedPath, capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_ZkVerifyUrlWithSecret_CallsGetZKPaymentWithIdAndSecret()
+    {
+        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
+        var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID#secret=1234");
+
+        Assert.Equal("/v2/payments/ZK_ID", capturedRequests[0].RequestUri?.AbsolutePath);
+        Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result[0].Destinations[0].Value);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_ZkVerifyUrlWithoutSecret_CallsGetPaymentsWithId()
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID");
+
+        Assert.Equal("/v2/payments/ZK_ID", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Theory]
+    [InlineData("http://example.com?branta_id=myid&branta_secret=mysecret", "myid")]
+    [InlineData("bitcoin:BC1Q?branta_id=payid&branta_secret=sec", "payid")]
+    public async Task GetPaymentsByQrCodeAsync_BrantaZkQueryParams_CallsGetZKPaymentWithId(string qr, string expectedId)
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync(qr);
+
+        Assert.Equal($"/v2/payments/{expectedId}", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Theory]
+    [InlineData("bitcoin:BC1QABC123", "bc1qabc123")]
+    [InlineData("bitcoin:BCRT1QABC", "bcrt1qabc")]
+    [InlineData("bitcoin:1ABCDef", "1ABCDef")]
+    public async Task GetPaymentsByQrCodeAsync_BitcoinUri_NormalizesAddress(string qr, string expectedId)
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync(qr);
+
+        Assert.Equal($"/v2/payments/{expectedId}", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Theory]
+    [InlineData("lightning:LNBC1234TEST", "lnbc1234test")]
+    [InlineData("LNBC1234TEST", "lnbc1234test")]
+    [InlineData("BC1QABC123", "bc1qabc123")]
+    [InlineData("some-plain-id", "some-plain-id")]
+    public async Task GetPaymentsByQrCodeAsync_PlainAndPrefixedAddresses_NormalizesCorrectly(string qr, string expectedId)
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync(qr);
+
+        Assert.Equal($"/v2/payments/{expectedId}", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_WhitespaceTrimmed()
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync("  some-payment-id  ");
+
+        Assert.Equal("/v2/payments/some-payment-id", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_FallbackUrl_UsesLastPathSegment()
+    {
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/payments/ENCRYPTED_KEY");
+
+        Assert.Equal("/v2/payments/ENCRYPTED_KEY", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_BitcoinUriBip21WithBrantaZkParams_CallsGetZKPayment()
+    {
+        const string encryptedId = "ENC+KEY==";
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.GetPaymentsByQrCodeAsync($"bitcoin:BC1QTEST?amount=0.001&branta_id={Uri.EscapeDataString(encryptedId)}&branta_secret=sec");
+
+        Assert.Equal($"/v2/payments/{Uri.EscapeDataString(encryptedId)}", capturedRequests[0].RequestUri?.AbsolutePath);
+    }
+
+    // ── AddPaymentAsync HMAC ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AddPaymentAsync_WithHmacSecret_IncludesHmacHeaders()
+    {
+        var payment = _testPayments.First();
+        var customOptions = new BrantaClientOptions
+        {
+            BaseUrl = BrantaServerBaseUrl.Localhost,
+            DefaultApiKey = "test-api-key",
+            HmacSecret = "test-hmac-secret"
+        };
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.AddPaymentAsync(payment, customOptions);
+
+        Assert.Single(capturedRequests);
+        Assert.True(capturedRequests[0].Headers.Contains("X-HMAC-Signature"));
+        Assert.True(capturedRequests[0].Headers.Contains("X-HMAC-Timestamp"));
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_WithoutHmacSecret_OmitsHmacHeaders()
+    {
+        var payment = _testPayments.First();
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.AddPaymentAsync(payment);
+
+        Assert.Single(capturedRequests);
+        Assert.False(capturedRequests[0].Headers.Contains("X-HMAC-Signature"));
+        Assert.False(capturedRequests[0].Headers.Contains("X-HMAC-Timestamp"));
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_HmacSignature_Is64CharLowercaseHex()
+    {
+        var payment = _testPayments.First();
+        var customOptions = new BrantaClientOptions
+        {
+            BaseUrl = BrantaServerBaseUrl.Localhost,
+            DefaultApiKey = "test-api-key",
+            HmacSecret = "test-hmac-secret"
+        };
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.AddPaymentAsync(payment, customOptions);
+
+        var signature = capturedRequests[0].Headers.GetValues("X-HMAC-Signature").First();
+        Assert.Equal(64, signature.Length);
+        Assert.Matches("^[a-f0-9]+$", signature);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_HmacTimestamp_IsRecentUnixEpochSeconds()
+    {
+        var payment = _testPayments.First();
+        var customOptions = new BrantaClientOptions
+        {
+            BaseUrl = BrantaServerBaseUrl.Localhost,
+            DefaultApiKey = "test-api-key",
+            HmacSecret = "test-hmac-secret"
+        };
+        var beforeSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.AddPaymentAsync(payment, customOptions);
+
+        var afterSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var timestamp = long.Parse(capturedRequests[0].Headers.GetValues("X-HMAC-Timestamp").First());
+        Assert.InRange(timestamp, beforeSec, afterSec);
+        Assert.Matches(@"^\d{10}$", timestamp.ToString());
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_HmacSignature_MatchesExpectedComputation()
+    {
+        var payment = _testPayments.First();
+        const string hmacSecret = "test-hmac-secret";
+        var customOptions = new BrantaClientOptions
+        {
+            BaseUrl = BrantaServerBaseUrl.Localhost,
+            DefaultApiKey = "test-api-key",
+            HmacSecret = hmacSecret
+        };
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.AddPaymentAsync(payment, customOptions);
+
+        var signature = capturedRequests[0].Headers.GetValues("X-HMAC-Signature").First();
+        var timestamp = capturedRequests[0].Headers.GetValues("X-HMAC-Timestamp").First();
+        var body = await capturedRequests[0].Content!.ReadAsStringAsync();
+        var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl();
+        var message = $"POST|{baseUrl}/v2/payments|{body}|{timestamp}";
+        var expectedSig = Convert.ToHexString(
+            HMACSHA256.HashData(Encoding.UTF8.GetBytes(hmacSecret), Encoding.UTF8.GetBytes(message))
+        ).ToLowerInvariant();
+
+        Assert.Equal(expectedSig, signature);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_UsesHmacSecretFromDefaultOptions()
+    {
+        _defaultOptions.HmacSecret = "default-hmac-secret";
+        var payment = _testPayments.First();
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await _sut.AddPaymentAsync(payment);
+
+        Assert.True(capturedRequests[0].Headers.Contains("X-HMAC-Signature"));
+
+        _defaultOptions.HmacSecret = null;
+    }
+
+    // ── VerifyUrl population ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPaymentsAsync_SetsVerifyUrlOnReturnedPayments()
+    {
+        var address = "bc1qabc";
+        var payments = new List<Payment> { new() { Destinations = [new Destination { Value = address }] } };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetPaymentsAsync(address);
+
+        var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl().TrimEnd('/');
+        Assert.Equal($"{baseUrl}/v2/verify/{Uri.EscapeDataString(address)}", result[0].VerifyUrl);
+    }
+
+    [Fact]
+    public async Task GetZKPaymentAsync_SetsZkVerifyUrlWithSecretFragment()
+    {
+        const string secret = "1234";
+        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
+        var payments = new List<Payment>
+        {
+            new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] }
+        };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetZKPaymentAsync(encryptedValue, secret);
+
+        var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl().TrimEnd('/');
+        Assert.Equal($"{baseUrl}/v2/zk-verify/{Uri.EscapeDataString(encryptedValue)}#secret={secret}", result[0].VerifyUrl);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_SetsVerifyUrlOnReturnedPayment()
+    {
+        var payment = _testPayments.First();
+        var jsonResponse = JsonSerializer.Serialize(payment);
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.AddPaymentAsync(payment);
+
+        var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl().TrimEnd('/');
+        Assert.Equal($"{baseUrl}/v2/verify/{Uri.EscapeDataString(payment.Destinations[0].Value)}", result?.VerifyUrl);
+    }
+
+    [Fact]
+    public async Task AddZKPaymentAsync_SetsZkVerifyUrlOnReturnedPayment()
+    {
+        var payment = new Payment { Destinations = [new Destination { Value = "bc1qabc", IsZk = true }] };
+        var jsonResponse = JsonSerializer.Serialize(payment);
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var (result, secret) = await _sut.AddZKPaymentAsync(payment);
+
+        // The verify URL should use the encrypted (post-encryption) address value
+        var sentBody = await capturedRequests[0].Content!.ReadAsStringAsync();
+        var sentPayment = JsonSerializer.Deserialize<Payment>(sentBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var encryptedAddress = sentPayment!.Destinations[0].Value;
+        var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl().TrimEnd('/');
+        Assert.Equal($"{baseUrl}/v2/zk-verify/{Uri.EscapeDataString(encryptedAddress)}#secret={secret}", result?.VerifyUrl);
+    }
+
     private HttpClient SetupHttpClient(HttpStatusCode statusCode, string? content)
     {
         var handlerMock = new Mock<HttpMessageHandler>();
@@ -219,5 +577,27 @@ public class BrantaClientTests
             .ReturnsAsync(response);
 
         return new HttpClient(handlerMock.Object);
+    }
+
+    private (HttpClient, List<HttpRequestMessage>) SetupCapturingHttpClient(HttpStatusCode statusCode, string? content)
+    {
+        var handlerMock = new Mock<HttpMessageHandler>();
+        var capturedRequests = new List<HttpRequestMessage>();
+        var response = new HttpResponseMessage
+        {
+            StatusCode = statusCode,
+            Content = content != null ? new StringContent(content, Encoding.UTF8, "application/json") : null
+        };
+
+        handlerMock
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) => capturedRequests.Add(req))
+            .ReturnsAsync(response);
+
+        return (new HttpClient(handlerMock.Object), capturedRequests);
     }
 }
