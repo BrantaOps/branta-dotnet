@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using Branta.Enums;
+using System.Text.Json.Serialization;
 
 namespace Branta.V2.Models;
 
@@ -11,4 +12,7 @@ public class Destination
 
     [JsonPropertyName("zk")]
     public bool IsZk { get; set; }
+
+    [JsonPropertyName("type")]
+    public DestinationType? Type { get; set; }
 }

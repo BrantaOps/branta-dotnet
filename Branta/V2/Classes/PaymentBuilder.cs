@@ -1,4 +1,5 @@
-﻿using Branta.V2.Models;
+﻿using Branta.Enums;
+using Branta.V2.Models;
 using System.Text.Json;
 
 namespace Branta.V2.Classes;
@@ -10,12 +11,13 @@ public class PaymentBuilder
         Destinations = []
     };
 
-    public PaymentBuilder AddDestination(string address, bool zk = false)
+    public PaymentBuilder AddDestination(string address, bool zk = false, DestinationType? type = null)
     {
         payment.Destinations.Add(new Destination()
         {
             Value = address,
-            IsZk = zk
+            IsZk = zk,
+            Type = type
         });
 
         return this;
