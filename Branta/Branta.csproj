@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>Branta SDK</Title>
-    <AssemblyVersion>0.0.6</AssemblyVersion>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
     <Version>$(AssemblyVersion)</Version>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
