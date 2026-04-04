@@ -38,5 +38,9 @@ public enum DestinationType
     [JsonPropertyName("ln_url")]
     LnUrl,
     [JsonPropertyName("tether_address")]
-    TetherAddress
+    TetherAddress,
+    [JsonPropertyName("ln_address")]
+    LnAddress,
+    [JsonPropertyName("ark_address")]
+    ArkAddress
 }
