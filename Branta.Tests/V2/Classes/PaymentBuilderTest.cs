@@ -33,6 +33,8 @@ public class PaymentBuilderTests
     [InlineData(DestinationType.Bolt12, "bolt12")]
     [InlineData(DestinationType.LnUrl, "ln_url")]
     [InlineData(DestinationType.TetherAddress, "tether_address")]
+    [InlineData(DestinationType.LnAddress, "ln_address")]
+    [InlineData(DestinationType.ArkAddress, "ark_address")]
     public void DestinationType_SerializesToCorrectJsonString(DestinationType type, string expected)
     {
         var destination = new Destination { Value = "addr", Type = type };
