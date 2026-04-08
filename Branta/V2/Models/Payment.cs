@@ -20,6 +20,9 @@ public class Payment
     [JsonPropertyName("platform_logo_url")]
     public string? PlatformLogoUrl { get; set; }
 
+    [JsonPropertyName("platform_logo_light_url")]
+    public string? PlatformLogoLightUrl { get; set; }
+
     [JsonPropertyName("verify_url")]
     public string? VerifyUrl { get; set; }
 
