@@ -52,7 +52,8 @@ public class BrantaClientTests
         _defaultOptions = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
-            DefaultApiKey = "test-api-key"
+            DefaultApiKey = "test-api-key",
+            Privacy = PrivacyMode.Loose
         };
         _optionsMock.Setup(x => x.Value).Returns(_defaultOptions);
         _sut = new BrantaClient(_httpClientFactoryMock.Object, _optionsMock.Object);
@@ -106,7 +107,8 @@ public class BrantaClientTests
         var address = "test-address";
         var customOptions = new BrantaClientOptions
         {
-            BaseUrl = BrantaServerBaseUrl.Production
+            BaseUrl = BrantaServerBaseUrl.Production,
+            Privacy = PrivacyMode.Loose
         };
         var httpClient = SetupHttpClient(HttpStatusCode.OK, "[]");
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
@@ -220,7 +222,8 @@ public class BrantaClientTests
         var optionsWithoutApiKey = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Production,
-            DefaultApiKey = null
+            DefaultApiKey = null,
+            Privacy = PrivacyMode.Loose
         };
         _optionsMock.Setup(x => x.Value).Returns(optionsWithoutApiKey);
         var sut = new BrantaClient(_httpClientFactoryMock.Object, _optionsMock.Object);
@@ -238,7 +241,8 @@ public class BrantaClientTests
         var customOptions = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Production,
-            DefaultApiKey = "custom-api-key"
+            DefaultApiKey = "custom-api-key",
+            Privacy = PrivacyMode.Loose
         };
         var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
         var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
@@ -376,7 +380,8 @@ public class BrantaClientTests
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
             DefaultApiKey = "test-api-key",
-            HmacSecret = "test-hmac-secret"
+            HmacSecret = "test-hmac-secret",
+            Privacy = PrivacyMode.Loose
         };
         var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
@@ -412,7 +417,8 @@ public class BrantaClientTests
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
             DefaultApiKey = "test-api-key",
-            HmacSecret = "test-hmac-secret"
+            HmacSecret = "test-hmac-secret",
+            Privacy = PrivacyMode.Loose
         };
         var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
@@ -433,7 +439,8 @@ public class BrantaClientTests
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
             DefaultApiKey = "test-api-key",
-            HmacSecret = "test-hmac-secret"
+            HmacSecret = "test-hmac-secret",
+            Privacy = PrivacyMode.Loose
         };
         var beforeSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
@@ -457,7 +464,8 @@ public class BrantaClientTests
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
             DefaultApiKey = "test-api-key",
-            HmacSecret = hmacSecret
+            HmacSecret = hmacSecret,
+            Privacy = PrivacyMode.Loose
         };
         var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
@@ -557,6 +565,115 @@ public class BrantaClientTests
         var encryptedAddress = sentPayment!.Destinations[0].Value;
         var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl().TrimEnd('/');
         Assert.Equal($"{baseUrl}/v2/zk-verify/{Uri.EscapeDataString(encryptedAddress)}#secret={secret}", result?.VerifyUrl);
+    }
+
+    // ── Privacy mode ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPaymentsAsync_StrictPrivacy_ViaOptions_ThrowsException()
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var exception = await Assert.ThrowsAsync<BrantaPaymentException>(() => _sut.GetPaymentsAsync("addr", strictOptions));
+        Assert.Contains("Strict", exception.Message);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_StrictPrivacy_ViaDefaultOptions_ThrowsException()
+    {
+        _defaultOptions.Privacy = PrivacyMode.Strict;
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        await Assert.ThrowsAsync<BrantaPaymentException>(() => _sut.GetPaymentsAsync("addr"));
+
+        _defaultOptions.Privacy = PrivacyMode.Loose;
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_LoosePrivacy_DoesNotThrow()
+    {
+        var looseOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Loose };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, "[]");
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetPaymentsAsync("addr", looseOptions);
+
+        Assert.Empty(result);
+    }
+
+    [Theory]
+    [InlineData("plain-address")]
+    [InlineData("bc1qabc123")]
+    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_PlainAddress_ReturnsEmpty(string qr)
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+
+        var result = await _sut.GetPaymentsByQrCodeAsync(qr, strictOptions);
+
+        Assert.Empty(result);
+    }
+
+    [Theory]
+    [InlineData("bitcoin:BC1QABC123")]
+    [InlineData("bitcoin:1ABCDef")]
+    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_BitcoinUri_ReturnsEmpty(string qr)
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+
+        var result = await _sut.GetPaymentsByQrCodeAsync(qr, strictOptions);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_VerifyUrl_ReturnsEmpty()
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+
+        var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/verify/bc1qabc123", strictOptions);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_ZkVerifyUrlWithoutSecret_ReturnsEmpty()
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+
+        var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID", strictOptions);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_ZkQueryParams_Allowed()
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
+        var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetPaymentsByQrCodeAsync($"http://example.com?branta_id=ZK_ID&branta_secret=1234", strictOptions);
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_ZkVerifyUrlWithSecret_Allowed()
+    {
+        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
+        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
+        var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID#secret=1234", strictOptions);
+
+        Assert.Single(result);
     }
 
     private HttpClient SetupHttpClient(HttpStatusCode statusCode, string? content)

@@ -1,4 +1,5 @@
 ﻿using Branta.Classes;
+using Branta.Enums;
 using Branta.Exceptions;
 using Branta.Extensions;
 using Branta.V2.Models;
@@ -22,6 +23,15 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
     };
 
     public async Task<List<Payment>> GetPaymentsAsync(string address, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var privacy = options?.Privacy ?? _defaultOptions?.Privacy ?? PrivacyMode.Loose;
+        if (privacy == PrivacyMode.Strict)
+            throw new BrantaPaymentException("privacy is set to 'Strict': plain on-chain address lookups are not permitted");
+
+        return await FetchPaymentsAsync(address, options, cancellationToken);
+    }
+
+    private async Task<List<Payment>> FetchPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
     {
         var httpClient = _httpClientFactory.CreateClient();
         ConfigureClient(httpClient, options);
@@ -60,7 +70,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     public async Task<List<Payment>> GetZKPaymentAsync(string address, string secret, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var payments = await GetPaymentsAsync(address, options, cancellationToken);
+        var payments = await FetchPaymentsAsync(address, options, cancellationToken);
 
         foreach (var payment in payments)
         {
@@ -137,7 +147,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
     {
         var text = qrText.Trim();
 
-        // Check for branta ZK query params in any URL format (including bitcoin: URIs)
+        // ZK query params (branta_id + branta_secret) — always allowed regardless of privacy
         var queryStart = text.IndexOf('?');
         if (queryStart >= 0)
         {
@@ -149,19 +159,20 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
                 return await GetZKPaymentAsync(bId, bSec, options, cancellationToken);
         }
 
+        // Not a URI — treat as plain address
         if (!Uri.TryCreate(text, UriKind.Absolute, out var uri))
-            return await GetPaymentsAsync(NormalizeAddress(text), options, cancellationToken);
+            return await GetPlainPaymentsAsync(NormalizeAddress(text), options, cancellationToken);
 
-        // bitcoin: URI — strip optional query, then normalize (NormalizeAddress handles bitcoin: prefix)
+        // bitcoin: URI — strip optional query, then normalize
         if (uri.Scheme == "bitcoin")
         {
             var raw = text["bitcoin:".Length..];
             var qs = raw.IndexOf('?');
             var addr = qs >= 0 ? raw[..qs] : raw;
-            return await GetPaymentsAsync(NormalizeAddress("bitcoin:" + addr), options, cancellationToken);
+            return await GetPlainPaymentsAsync(NormalizeAddress("bitcoin:" + addr), options, cancellationToken);
         }
 
-        // http/https URLs — check if they match the configured base URL
+        // http/https URL matching the configured base URL
         if (uri.Scheme is "http" or "https")
         {
             var baseUrl = (options?.BaseUrl ?? _defaultOptions?.BaseUrl)?.GetUrl();
@@ -175,29 +186,40 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
                     {
                         var type = segments[1];
                         var id = Uri.UnescapeDataString(segments[2]);
+
                         if (type == "verify")
-                            return await GetPaymentsAsync(id, options, cancellationToken);
+                            return await GetPlainPaymentsAsync(id, options, cancellationToken);
+
                         if (type == "zk-verify")
                         {
                             var fragment = uri.Fragment.TrimStart('#');
                             var fp = ParseQueryString(fragment);
                             fp.TryGetValue("secret", out var secret);
-                            return secret != null
-                                ? await GetZKPaymentAsync(id, secret, options, cancellationToken)
-                                : await GetPaymentsAsync(id, options, cancellationToken);
+                            if (secret != null)
+                                return await GetZKPaymentAsync(id, secret, options, cancellationToken);
+                            return await GetPlainPaymentsAsync(id, options, cancellationToken);
                         }
                     }
+
                     // Fallback: use the last path segment
                     if (segments.Length > 0)
                     {
                         var last = Uri.UnescapeDataString(segments[^1]);
-                        return await GetPaymentsAsync(last, options, cancellationToken);
+                        return await GetPlainPaymentsAsync(last, options, cancellationToken);
                     }
                 }
             }
         }
 
-        return await GetPaymentsAsync(NormalizeAddress(text), options, cancellationToken);
+        return await GetPlainPaymentsAsync(NormalizeAddress(text), options, cancellationToken);
+    }
+
+    private Task<List<Payment>> GetPlainPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
+    {
+        var privacy = options?.Privacy ?? _defaultOptions?.Privacy ?? PrivacyMode.Loose;
+        if (privacy == PrivacyMode.Strict)
+            return Task.FromResult(new List<Payment>());
+        return FetchPaymentsAsync(address, options, cancellationToken);
     }
 
     public async Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
