@@ -9,7 +9,7 @@ namespace Branta.Enums;
 ///       Only ZK (zero-knowledge / encrypted) on-chain lookups are permitted.
 ///       Calling <c>GetPaymentsAsync</c> directly will throw a <c>BrantaPaymentException</c>;
 ///       plain-address branches inside <c>GetPaymentsByQrCodeAsync</c> will silently return an
-///       empty list. Lightning invoices and all POST operations are unaffected by this setting.
+///       empty list. All POST operations are unaffected by this setting.
 ///     </description>
 ///   </item>
 ///   <item>
