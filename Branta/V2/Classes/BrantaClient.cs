@@ -3,7 +3,6 @@ using Branta.Exceptions;
 using Branta.Extensions;
 using Branta.V2.Models;
 using Microsoft.Extensions.Options;
-using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,7 +17,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
     public async Task<List<Payment>> GetPaymentsAsync(string address, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
@@ -33,7 +32,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
             return [];
         }
 
-        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(cancellationToken) ?? [];
+        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(_jsonOptions, cancellationToken) ?? [];
 
         // Validate that platformLogoUrl (if present) belongs to the configured base domain.
         var baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
@@ -87,7 +86,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         ConfigureClient(httpClient, options);
         SetApiKey(httpClient, options);
 
-        var json = JsonSerializer.Serialize(payment);
+        var json = JsonSerializer.Serialize(payment, _jsonOptions);
         var request = new HttpRequestMessage(HttpMethod.Post, "/v2/payments")
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")

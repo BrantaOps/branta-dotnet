@@ -37,8 +37,9 @@ public class PaymentBuilderTests
     [InlineData(DestinationType.ArkAddress, "ark_address")]
     public void DestinationType_SerializesToCorrectJsonString(DestinationType type, string expected)
     {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
         var destination = new Destination { Value = "addr", Type = type };
-        var json = JsonSerializer.Serialize(destination);
+        var json = JsonSerializer.Serialize(destination, options);
         var doc = JsonDocument.Parse(json);
 
         Assert.Equal(expected, doc.RootElement.GetProperty("type").GetString());

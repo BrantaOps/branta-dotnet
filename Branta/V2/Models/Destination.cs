@@ -13,6 +13,5 @@ public class Destination
     [JsonPropertyName("zk")]
     public bool IsZk { get; set; }
 
-    [JsonPropertyName("type")]
     public DestinationType? Type { get; set; }
 }
