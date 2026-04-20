@@ -28,8 +28,9 @@ services.ConfigureBrantaServices();
 // OR with default options set
 
 services.ConfigureBrantaServices(new BrantaClientOptions() {
-    BaseUrl = "",
-    DefaultApiKey = ""
+    BaseUrl = BrantaServerBaseUrl.Production,
+    DefaultApiKey = "<api-key>",
+    Privacy = PrivacyMode.Loose
 });
 
 // Use within your Services
@@ -71,3 +72,4 @@ public class Example
  - [X] V2 Payment by Parent Platform with HMAC
  - [X] V2 Add Zero Knowledge Payment with secret
  - [X] V2 Check API key valid
+ - [X] Privacy mode (strict / loose)
