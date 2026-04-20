@@ -63,7 +63,7 @@ public class BrantaClientTests
     public async Task GetPaymentAsync_ShouldReturnPayments()
     {
         var address = "test-address";
-        var jsonResponse = JsonSerializer.Serialize(_testPayments);
+        var jsonResponse = JsonSerializer.Serialize(_testPayments, SnakeCaseOptions);
         var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -140,7 +140,7 @@ public class BrantaClientTests
                 PlatformLogoUrl = "https://evil.com/logo.png"
             }
         };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var exception = await Assert.ThrowsAsync<BrantaPaymentException>(() => _sut.GetPaymentsAsync("addr"));
@@ -158,7 +158,7 @@ public class BrantaClientTests
                 PlatformLogoUrl = $"{baseUrl}/logo.png"
             }
         };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var result = await _sut.GetPaymentsAsync("addr");
@@ -180,7 +180,7 @@ public class BrantaClientTests
                 ]
             }
         };
-        var jsonResponse = JsonSerializer.Serialize(payments);
+        var jsonResponse = JsonSerializer.Serialize(payments, SnakeCaseOptions);
         var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -204,7 +204,7 @@ public class BrantaClientTests
                 ]
             }
         };
-        var jsonResponse = JsonSerializer.Serialize(payments);
+        var jsonResponse = JsonSerializer.Serialize(payments, SnakeCaseOptions);
         var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -244,7 +244,7 @@ public class BrantaClientTests
             DefaultApiKey = "custom-api-key",
             Privacy = PrivacyMode.Loose
         };
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -274,7 +274,7 @@ public class BrantaClientTests
     {
         var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
         var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
-        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID#secret=1234");
@@ -383,7 +383,7 @@ public class BrantaClientTests
             HmacSecret = "test-hmac-secret",
             Privacy = PrivacyMode.Loose
         };
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -398,7 +398,7 @@ public class BrantaClientTests
     public async Task AddPaymentAsync_WithoutHmacSecret_OmitsHmacHeaders()
     {
         var payment = _testPayments.First();
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -420,7 +420,7 @@ public class BrantaClientTests
             HmacSecret = "test-hmac-secret",
             Privacy = PrivacyMode.Loose
         };
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -443,7 +443,7 @@ public class BrantaClientTests
             Privacy = PrivacyMode.Loose
         };
         var beforeSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -467,7 +467,7 @@ public class BrantaClientTests
             HmacSecret = hmacSecret,
             Privacy = PrivacyMode.Loose
         };
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -490,7 +490,7 @@ public class BrantaClientTests
     {
         _defaultOptions.HmacSecret = "default-hmac-secret";
         var payment = _testPayments.First();
-        var jsonResponse = JsonSerializer.Serialize(_testPayments.First());
+        var jsonResponse = JsonSerializer.Serialize(_testPayments.First(), SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -508,7 +508,7 @@ public class BrantaClientTests
     {
         var address = "bc1qabc";
         var payments = new List<Payment> { new() { Destinations = [new Destination { Value = address }] } };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var result = await _sut.GetPaymentsAsync(address);
@@ -526,7 +526,7 @@ public class BrantaClientTests
         {
             new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] }
         };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var result = await _sut.GetZKPaymentAsync(encryptedValue, secret);
@@ -539,7 +539,7 @@ public class BrantaClientTests
     public async Task AddPaymentAsync_SetsVerifyUrlOnReturnedPayment()
     {
         var payment = _testPayments.First();
-        var jsonResponse = JsonSerializer.Serialize(payment);
+        var jsonResponse = JsonSerializer.Serialize(payment, SnakeCaseOptions);
         var httpClient = SetupHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -553,7 +553,7 @@ public class BrantaClientTests
     public async Task AddZKPaymentAsync_SetsZkVerifyUrlOnReturnedPayment()
     {
         var payment = new Payment { Destinations = [new Destination { Value = "bc1qabc", IsZk = true }] };
-        var jsonResponse = JsonSerializer.Serialize(payment);
+        var jsonResponse = JsonSerializer.Serialize(payment, SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
@@ -654,7 +654,7 @@ public class BrantaClientTests
         var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
         var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
         var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var result = await _sut.GetPaymentsByQrCodeAsync($"http://example.com?branta_id=ZK_ID&branta_secret=1234", strictOptions);
@@ -668,12 +668,102 @@ public class BrantaClientTests
         var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
         var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
         var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments));
+        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
         var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID#secret=1234", strictOptions);
 
         Assert.Single(result);
+    }
+
+    // ── Snake_case serialization ──────────────────────────────────────────────
+
+    private static readonly JsonSerializerOptions SnakeCaseOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+    };
+
+    [Fact]
+    public void Payment_Serializes_To_SnakeCase_Keys()
+    {
+        var payment = new Payment
+        {
+            Destinations = [new Destination { Value = "addr" }],
+            PlatformLogoUrl = "https://example.com/logo.png",
+            PlatformLogoLightUrl = "https://example.com/logo-light.png",
+            VerifyUrl = "https://example.com/verify/addr",
+            BtcPayServerPluginVersion = "1.0"
+        };
+
+        var json = JsonSerializer.Serialize(payment, SnakeCaseOptions);
+
+        Assert.Contains("\"platform_logo_url\"", json);
+        Assert.Contains("\"platform_logo_light_url\"", json);
+        Assert.Contains("\"verify_url\"", json);
+        Assert.Contains("\"btc_pay_server_plugin_version\"", json);
+    }
+
+    [Fact]
+    public void Payment_Deserializes_From_SnakeCase_Keys()
+    {
+        var json = """
+            {
+                "platform_logo_url": "https://example.com/logo.png",
+                "platform_logo_light_url": "https://example.com/logo-light.png",
+                "verify_url": "https://example.com/verify/addr",
+                "btc_pay_server_plugin_version": "1.0",
+                "destinations": [{ "value": "addr" }]
+            }
+            """;
+
+        var payment = JsonSerializer.Deserialize<Payment>(json, SnakeCaseOptions);
+
+        Assert.NotNull(payment);
+        Assert.Equal("https://example.com/logo.png", payment.PlatformLogoUrl);
+        Assert.Equal("https://example.com/logo-light.png", payment.PlatformLogoLightUrl);
+        Assert.Equal("https://example.com/verify/addr", payment.VerifyUrl);
+        Assert.Equal("1.0", payment.BtcPayServerPluginVersion);
+    }
+
+    [Fact]
+    public void Destination_Serializes_To_SnakeCase_Keys()
+    {
+        var destination = new Destination
+        {
+            Value = "addr",
+            IsPrimary = true,
+            IsZk = true,
+            Type = DestinationType.BitcoinAddress
+        };
+
+        var json = JsonSerializer.Serialize(destination, SnakeCaseOptions);
+
+        Assert.Contains("\"primary\"", json);
+        Assert.Contains("\"zk\"", json);
+        Assert.Contains("\"value\"", json);
+        Assert.Contains("\"type\"", json);
+        Assert.DoesNotContain("\"is_primary\"", json);
+        Assert.DoesNotContain("\"is_zk\"", json);
+    }
+
+    [Fact]
+    public void Destination_Deserializes_From_SnakeCase_Keys()
+    {
+        var json = """
+            {
+                "value": "addr",
+                "primary": true,
+                "zk": true,
+                "type": "bitcoin_address"
+            }
+            """;
+
+        var destination = JsonSerializer.Deserialize<Destination>(json, SnakeCaseOptions);
+
+        Assert.NotNull(destination);
+        Assert.Equal("addr", destination.Value);
+        Assert.True(destination.IsPrimary);
+        Assert.True(destination.IsZk);
     }
 
     private HttpClient SetupHttpClient(HttpStatusCode statusCode, string? content)
