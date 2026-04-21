@@ -255,45 +255,6 @@ public class BrantaClientTests
     }
 
     // ── GetPaymentsByQrCodeAsync ──────────────────────────────────────────────
-
-    [Theory]
-    [InlineData("http://localhost:3000/v2/verify/bc1qabc123", "/v2/payments/bc1qabc123")]
-    [InlineData("http://localhost:3000/v2/verify/some-id", "/v2/payments/some-id")]
-    public async Task GetPaymentsByQrCodeAsync_VerifyUrl_CallsGetPaymentsWithId(string qr, string expectedPath)
-    {
-        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        await _sut.GetPaymentsByQrCodeAsync(qr);
-
-        Assert.Equal(expectedPath, capturedRequests[0].RequestUri?.AbsolutePath);
-    }
-
-    [Fact]
-    public async Task GetPaymentsByQrCodeAsync_ZkVerifyUrlWithSecret_CallsGetZKPaymentWithIdAndSecret()
-    {
-        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
-        var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
-        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID#secret=1234");
-
-        Assert.Equal("/v2/payments/ZK_ID", capturedRequests[0].RequestUri?.AbsolutePath);
-        Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result[0].Destinations[0].Value);
-    }
-
-    [Fact]
-    public async Task GetPaymentsByQrCodeAsync_ZkVerifyUrlWithoutSecret_CallsGetPaymentsWithId()
-    {
-        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID");
-
-        Assert.Equal("/v2/payments/ZK_ID", capturedRequests[0].RequestUri?.AbsolutePath);
-    }
-
     [Fact]
     public async Task GetPaymentsByQrCodeAsync_BrantaZkQueryParams_CallsGetZKPaymentWithId()
     {
@@ -618,20 +579,6 @@ public class BrantaClientTests
         var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID", strictOptions);
 
         Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_ZkVerifyUrlWithSecret_Allowed()
-    {
-        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
-        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
-        var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID#secret=1234", strictOptions);
-
-        Assert.Single(result);
     }
 
     // ── Snake_case serialization ──────────────────────────────────────────────

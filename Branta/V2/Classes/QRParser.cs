@@ -37,21 +37,6 @@ public partial class QRParser
             return;
         }
 
-        if (uri.Scheme is "http" or "https")
-        {
-            if (!string.Equals(uri.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase) || uri.Port != baseUri.Port)
-            {
-                throw new QRParseException("Invalid branta URL.");
-            }
-
-            Destination = EncryptedText = GetDestinationFromUrl(uri.AbsolutePath);
-
-            var fragmentParams = HttpUtility.ParseQueryString(uri.Fragment.TrimStart('#'));
-            EncryptionSecret = fragmentParams["secret"];
-
-            return;
-        }
-
         Destination = text;
     }
 
@@ -83,16 +68,6 @@ public partial class QRParser
         return null;
     }
 
-    private static string? GetDestinationFromUrl(string url)
-    {
-        var match = DestinationFromUrlRegex().Match(url);
-
-        return match.Success ? match.Groups[1].Value : null;
-    }
-
     [GeneratedRegex(@"(?<=:)[^?]*")]
     private static partial Regex ColonToQuestionMarkRegex();
-
-    [GeneratedRegex(@"/v\d+/(?:verify|zk-verify)/([^?/]+)")]
-    private static partial Regex DestinationFromUrlRegex();
 }
