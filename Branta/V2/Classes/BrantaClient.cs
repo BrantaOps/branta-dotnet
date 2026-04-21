@@ -144,73 +144,18 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     public async Task<List<Payment>> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var text = qrText.Trim();
+        var parser = new QRParser(qrText, _defaultOptions.GetUri(options));
 
-        // ZK query params (branta_id + branta_secret) — always allowed regardless of privacy
-        var queryStart = text.IndexOf('?');
-        if (queryStart >= 0)
+        if (parser.IsZK())
         {
-            var rawQuery = text[(queryStart + 1)..];
-            var fragIdx = rawQuery.IndexOf('#');
-            if (fragIdx >= 0) rawQuery = rawQuery[..fragIdx];
-            var qp = ParseQueryString(rawQuery);
-            if (qp.TryGetValue("branta_id", out var bId) && qp.TryGetValue("branta_secret", out var bSec) && bId != null && bSec != null)
-                return await GetZKPaymentAsync(bId, bSec, options, cancellationToken);
+            return await GetZKPaymentAsync(parser.EncryptedText!, parser.EncryptionSecret!, options, cancellationToken);
+        }
+        else if (parser.Destination != null)
+        {
+            return await GetPlainPaymentsAsync(parser.Destination, options, cancellationToken);
         }
 
-        // Not a URI — treat as plain address
-        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri))
-            return await GetPlainPaymentsAsync(NormalizeAddress(text), options, cancellationToken);
-
-        // bitcoin: URI — strip optional query, then normalize
-        if (uri.Scheme == "bitcoin")
-        {
-            var raw = text["bitcoin:".Length..];
-            var qs = raw.IndexOf('?');
-            var addr = qs >= 0 ? raw[..qs] : raw;
-            return await GetPlainPaymentsAsync(NormalizeAddress("bitcoin:" + addr), options, cancellationToken);
-        }
-
-        // http/https URL matching the configured base URL
-        if (uri.Scheme is "http" or "https")
-        {
-            var baseUrl = (options?.BaseUrl ?? _defaultOptions?.BaseUrl)?.GetUrl();
-            if (baseUrl != null)
-            {
-                var baseUri = new Uri(baseUrl);
-                if (string.Equals(uri.Host, baseUri.Host, StringComparison.OrdinalIgnoreCase) && uri.Port == baseUri.Port)
-                {
-                    var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                    if (segments.Length >= 3 && segments[0] == "v2")
-                    {
-                        var type = segments[1];
-                        var id = Uri.UnescapeDataString(segments[2]);
-
-                        if (type == "verify")
-                            return await GetPlainPaymentsAsync(id, options, cancellationToken);
-
-                        if (type == "zk-verify")
-                        {
-                            var fragment = uri.Fragment.TrimStart('#');
-                            var fp = ParseQueryString(fragment);
-                            fp.TryGetValue("secret", out var secret);
-                            if (secret != null)
-                                return await GetZKPaymentAsync(id, secret, options, cancellationToken);
-                            return await GetPlainPaymentsAsync(id, options, cancellationToken);
-                        }
-                    }
-
-                    // Fallback: use the last path segment
-                    if (segments.Length > 0)
-                    {
-                        var last = Uri.UnescapeDataString(segments[^1]);
-                        return await GetPlainPaymentsAsync(last, options, cancellationToken);
-                    }
-                }
-            }
-        }
-
-        return await GetPlainPaymentsAsync(NormalizeAddress(text), options, cancellationToken);
+        return [];
     }
 
     private Task<List<Payment>> GetPlainPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
@@ -234,8 +179,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     private void ConfigureClient(HttpClient httpClient, BrantaClientOptions? options)
     {
-        var baseUrl = options?.BaseUrl ?? _defaultOptions?.BaseUrl ?? throw new Exception("Branta: BaseUrl is a required option.");
-        httpClient.BaseAddress = new Uri(baseUrl.GetUrl());
+        httpClient.BaseAddress = _defaultOptions.GetUri(options);
     }
 
     private void SetApiKey(HttpClient httpClient, BrantaClientOptions? options)

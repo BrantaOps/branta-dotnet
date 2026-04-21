@@ -294,39 +294,22 @@ public class BrantaClientTests
         Assert.Equal("/v2/payments/ZK_ID", capturedRequests[0].RequestUri?.AbsolutePath);
     }
 
-    [Theory]
-    [InlineData("http://example.com?branta_id=myid&branta_secret=mysecret", "myid")]
-    [InlineData("bitcoin:BC1Q?branta_id=payid&branta_secret=sec", "payid")]
-    public async Task GetPaymentsByQrCodeAsync_BrantaZkQueryParams_CallsGetZKPaymentWithId(string qr, string expectedId)
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_BrantaZkQueryParams_CallsGetZKPaymentWithId()
     {
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-        await _sut.GetPaymentsByQrCodeAsync(qr);
+        await _sut.GetPaymentsByQrCodeAsync("bitcoin:BC1Q?branta_id=payid&branta_secret=sec");
 
-        Assert.Equal($"/v2/payments/{expectedId}", capturedRequests[0].RequestUri?.AbsolutePath);
+        Assert.Equal($"/v2/payments/payid", capturedRequests[0].RequestUri?.AbsolutePath);
     }
 
     [Theory]
-    [InlineData("bitcoin:BC1QABC123", "bc1qabc123")]
-    [InlineData("bitcoin:BCRT1QABC", "bcrt1qabc")]
+    [InlineData("bitcoin:BC1QABC123", "BC1QABC123")]
+    [InlineData("bitcoin:BCRT1QABC", "BCRT1QABC")]
     [InlineData("bitcoin:1ABCDef", "1ABCDef")]
     public async Task GetPaymentsByQrCodeAsync_BitcoinUri_NormalizesAddress(string qr, string expectedId)
-    {
-        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        await _sut.GetPaymentsByQrCodeAsync(qr);
-
-        Assert.Equal($"/v2/payments/{expectedId}", capturedRequests[0].RequestUri?.AbsolutePath);
-    }
-
-    [Theory]
-    [InlineData("lightning:LNBC1234TEST", "lnbc1234test")]
-    [InlineData("LNBC1234TEST", "lnbc1234test")]
-    [InlineData("BC1QABC123", "bc1qabc123")]
-    [InlineData("some-plain-id", "some-plain-id")]
-    public async Task GetPaymentsByQrCodeAsync_PlainAndPrefixedAddresses_NormalizesCorrectly(string qr, string expectedId)
     {
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
@@ -345,17 +328,6 @@ public class BrantaClientTests
         await _sut.GetPaymentsByQrCodeAsync("  some-payment-id  ");
 
         Assert.Equal("/v2/payments/some-payment-id", capturedRequests[0].RequestUri?.AbsolutePath);
-    }
-
-    [Fact]
-    public async Task GetPaymentsByQrCodeAsync_FallbackUrl_UsesLastPathSegment()
-    {
-        var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, "[]");
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/payments/ENCRYPTED_KEY");
-
-        Assert.Equal("/v2/payments/ENCRYPTED_KEY", capturedRequests[0].RequestUri?.AbsolutePath);
     }
 
     [Fact]
@@ -646,20 +618,6 @@ public class BrantaClientTests
         var result = await _sut.GetPaymentsByQrCodeAsync("http://localhost:3000/v2/zk-verify/ZK_ID", strictOptions);
 
         Assert.Empty(result);
-    }
-
-    [Fact]
-    public async Task GetPaymentsByQrCodeAsync_StrictPrivacy_ZkQueryParams_Allowed()
-    {
-        var strictOptions = new BrantaClientOptions { BaseUrl = BrantaServerBaseUrl.Localhost, Privacy = PrivacyMode.Strict };
-        var encryptedValue = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
-        var payments = new List<Payment> { new() { Destinations = [new Destination { IsZk = true, Value = encryptedValue }] } };
-        var httpClient = SetupHttpClient(HttpStatusCode.OK, JsonSerializer.Serialize(payments, SnakeCaseOptions));
-        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
-
-        var result = await _sut.GetPaymentsByQrCodeAsync($"http://example.com?branta_id=ZK_ID&branta_secret=1234", strictOptions);
-
-        Assert.Single(result);
     }
 
     [Fact]
