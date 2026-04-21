@@ -219,39 +219,4 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
             ? $"{baseUrl}/v2/zk-verify/{encoded}#secret={secret}"
             : $"{baseUrl}/v2/verify/{encoded}";
     }
-
-    private static string NormalizeAddress(string text)
-    {
-        var lower = text.ToLowerInvariant();
-        if (lower.StartsWith("lightning:")) return lower["lightning:".Length..];
-        if (lower.StartsWith("bitcoin:"))
-        {
-            var addr = text["bitcoin:".Length..];
-            var addrLower = addr.ToLowerInvariant();
-            return addrLower.StartsWith("bc1q") || addrLower.StartsWith("bcrt") ? addrLower : addr;
-        }
-        if (lower.StartsWith("lnbc") || lower.StartsWith("bc1q")) return lower;
-        return text;
-    }
-
-    private static Dictionary<string, string?> ParseQueryString(string query)
-    {
-        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        if (string.IsNullOrEmpty(query)) return result;
-        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var idx = part.IndexOf('=');
-            if (idx < 0)
-            {
-                result[Uri.UnescapeDataString(part)] = null;
-            }
-            else
-            {
-                var key = Uri.UnescapeDataString(part[..idx]);
-                var val = Uri.UnescapeDataString(part[(idx + 1)..]);
-                result[key] = val;
-            }
-        }
-        return result;
-    }
 }
