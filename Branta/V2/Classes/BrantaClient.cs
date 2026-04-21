@@ -121,25 +121,34 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return responsePayment;
     }
 
-    public async Task<(Payment?, string)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<(Payment?, Dictionary<Destination, string>)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var secret = Guid.NewGuid().ToString();
+        var secrets = new Dictionary<Destination, string>();
 
         foreach (var destination in payment.Destinations ?? [])
         {
             if (destination.IsZk == false) continue;
 
+            if (destination.Type != DestinationType.BitcoinAddress)
+                throw new BrantaPaymentException($"destination type '{destination.Type}' does not support ZK");
+
+            var secret = Guid.NewGuid().ToString();
             destination.Value = AesEncryption.Encrypt(destination.Value, secret);
+            secrets[destination] = secret;
         }
 
         var responsePayment = await AddPaymentAsync(payment, options, cancellationToken);
-        if (responsePayment != null && payment.Destinations?.Count > 0)
+        if (responsePayment != null)
         {
-            var baseUrl = (options?.BaseUrl ?? _defaultOptions?.BaseUrl)?.GetUrl()?.TrimEnd('/') ?? "";
-            responsePayment.VerifyUrl = BuildVerifyUrl(baseUrl, payment.Destinations[0].Value, secret);
+            var firstZk = payment.Destinations?.FirstOrDefault(d => d.IsZk);
+            if (firstZk != null && secrets.TryGetValue(firstZk, out var firstSecret))
+            {
+                var baseUrl = (options?.BaseUrl ?? _defaultOptions?.BaseUrl)?.GetUrl()?.TrimEnd('/') ?? "";
+                responsePayment.VerifyUrl = BuildVerifyUrl(baseUrl, firstZk.Value, firstSecret);
+            }
         }
 
-        return (responsePayment, secret);
+        return (responsePayment, secrets);
     }
 
     public async Task<List<Payment>> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)

@@ -485,19 +485,27 @@ public class BrantaClientTests
     [Fact]
     public async Task AddZKPaymentAsync_SetsZkVerifyUrlOnReturnedPayment()
     {
-        var payment = new Payment { Destinations = [new Destination { Value = "bc1qabc", IsZk = true }] };
+        var destination = new Destination { Value = "bc1qabc", IsZk = true, Type = DestinationType.BitcoinAddress };
+        var payment = new Payment { Destinations = [destination] };
         var jsonResponse = JsonSerializer.Serialize(payment, SnakeCaseOptions);
         var (httpClient, capturedRequests) = SetupCapturingHttpClient(HttpStatusCode.OK, jsonResponse);
         _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-        var (result, secret) = await _sut.AddZKPaymentAsync(payment);
+        var (result, secrets) = await _sut.AddZKPaymentAsync(payment);
 
-        // The verify URL should use the encrypted (post-encryption) address value
         var sentBody = await capturedRequests[0].Content!.ReadAsStringAsync();
         var sentPayment = JsonSerializer.Deserialize<Payment>(sentBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         var encryptedAddress = sentPayment!.Destinations[0].Value;
         var baseUrl = BrantaServerBaseUrl.Localhost.GetUrl().TrimEnd('/');
-        Assert.Equal($"{baseUrl}/v2/zk-verify/{Uri.EscapeDataString(encryptedAddress)}#secret={secret}", result?.VerifyUrl);
+        Assert.Equal($"{baseUrl}/v2/zk-verify/{Uri.EscapeDataString(encryptedAddress)}#secret={secrets[destination]}", result?.VerifyUrl);
+    }
+
+    [Fact]
+    public async Task AddZKPaymentAsync_UnsupportedType_ThrowsBrantaPaymentException()
+    {
+        var payment = new Payment { Destinations = [new Destination { Value = "lnbc123", IsZk = true, Type = DestinationType.Bolt11 }] };
+
+        await Assert.ThrowsAsync<BrantaPaymentException>(() => _sut.AddZKPaymentAsync(payment));
     }
 
     // ── Privacy mode ──────────────────────────────────────────────────────────
