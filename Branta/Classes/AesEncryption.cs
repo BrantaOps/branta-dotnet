@@ -5,15 +5,16 @@ namespace Branta.Classes;
 
 public class AesEncryption
 {
-    public static string Encrypt(string value, string secret)
+    public static string Encrypt(string value, string secret, bool deterministicNonce = false)
     {
         try
         {
             byte[] keyData = SHA256.HashData(Encoding.UTF8.GetBytes(secret));
 
             byte[] iv = new byte[12];
-            using (var rng = RandomNumberGenerator.Create())
+            if (!deterministicNonce)
             {
+                using var rng = RandomNumberGenerator.Create();
                 rng.GetBytes(iv);
             }
 

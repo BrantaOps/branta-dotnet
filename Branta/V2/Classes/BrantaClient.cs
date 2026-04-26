@@ -23,53 +23,18 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     public async Task<List<Payment>> GetPaymentsAsync(string address, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var privacy = options?.Privacy ?? _defaultOptions?.Privacy ?? PrivacyMode.Loose;
+        var privacy = options?.Privacy ?? _defaultOptions?.Privacy ?? PrivacyMode.Strict;
         if (privacy == PrivacyMode.Strict)
-            throw new BrantaPaymentException("privacy is set to 'Strict': plain on-chain address lookups are not permitted");
+            throw new BrantaPaymentException("privacy is set to 'Strict': plain text lookups are not permitted");
 
         return await FetchPaymentsAsync(address, options, cancellationToken);
     }
 
-    private async Task<List<Payment>> FetchPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
+    public async Task<List<Payment>> GetZKPaymentsAsync(string encryptedValue, string secret, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var httpClient = _httpClientFactory.CreateClient();
-        ConfigureClient(httpClient, options);
+        var payments = await FetchPaymentsAsync(encryptedValue, options, cancellationToken);
 
-        var response = await httpClient.GetAsync($"/v2/payments/{Uri.EscapeDataString(address)}");
-
-        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength == 0)
-        {
-            return [];
-        }
-
-        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(_jsonOptions, cancellationToken) ?? [];
-
-        // Validate that platformLogoUrl (if present) belongs to the configured base domain.
-        var baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
-        var baseOrigin = httpClient.BaseAddress?.GetLeftPart(UriPartial.Authority);
-        if (baseOrigin != null)
-        {
-            foreach (var payment in payments)
-            {
-                var logoUrl = payment.PlatformLogoUrl;
-                if (!string.IsNullOrEmpty(logoUrl))
-                {
-                    if (!Uri.TryCreate(logoUrl, UriKind.Absolute, out var logoUri) ||
-                        logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
-                    {
-                        throw new BrantaPaymentException("platformLogoUrl domain does not match the configured baseUrl domain");
-                    }
-                }
-                payment.VerifyUrl = BuildVerifyUrl(baseUrl, address);
-            }
-        }
-
-        return payments;
-    }
-
-    public async Task<List<Payment>> GetZKPaymentAsync(string address, string secret, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        var payments = await FetchPaymentsAsync(address, options, cancellationToken);
+        var destinationKeys = new Dictionary<string, string>();
 
         foreach (var payment in payments)
         {
@@ -77,17 +42,33 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
             {
                 if (destination.IsZk == false) continue;
 
-                destination.Value = AesEncryption.Decrypt(destination.Value, secret);
+                if (destination.Type == DestinationType.BitcoinAddress || destination.Type == DestinationType.Bolt11)
+                {
+                    destination.Value = AesEncryption.Decrypt(destination.Value, secret);
+                    destinationKeys.TryAdd(destination.ZkId!, secret);
+                }
             }
         }
 
         var baseUrl = (options?.BaseUrl ?? _defaultOptions?.BaseUrl)?.GetUrl() ?? "";
         foreach (var payment in payments)
         {
-            payment.VerifyUrl = BuildVerifyUrl(baseUrl.TrimEnd('/'), address, secret);
+            payment.VerifyUrl = BuildVerifyUrl(baseUrl.TrimEnd('/'), encryptedValue, destinationKeys);
         }
 
         return payments;
+    }
+
+    public async Task<List<Payment>> GetZKPaymentsWithHashSecretAsync(string plainTextValue, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var hash = plainTextValue.ToNormalizedHash();
+        var encryptedValue = AesEncryption.Encrypt(plainTextValue, hash, deterministicNonce: true);
+
+        var result = await GetZKPaymentsAsync(encryptedValue, hash, options, cancellationToken);
+
+        if (result.Count > 0) return result;
+
+        return await GetPaymentsAsync(plainTextValue, options, cancellationToken);
     }
 
     public async Task<Payment?> AddPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
@@ -115,49 +96,65 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         var responsePayment = JsonSerializer.Deserialize<Payment>(responseBody, _jsonOptions);
         if (responsePayment != null && payment.Destinations.Count > 0)
         {
-            var baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
+            var baseUrl = _defaultOptions.GetUri(options).AbsoluteUri?.TrimEnd('/') ?? "";
             responsePayment.VerifyUrl = BuildVerifyUrl(baseUrl, payment.Destinations[0].Value);
         }
         return responsePayment;
     }
 
-    public async Task<(Payment?, Dictionary<Destination, string>)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<(Payment?, string)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var secrets = new Dictionary<Destination, string>();
+        var secret = Guid.NewGuid().ToString();
+
+        var destinationKeys = new Dictionary<string, string>();
 
         foreach (var destination in payment.Destinations ?? [])
         {
             if (destination.IsZk == false) continue;
 
-            if (destination.Type != DestinationType.BitcoinAddress)
-                throw new BrantaPaymentException($"destination type '{destination.Type}' does not support ZK");
-
-            var secret = Guid.NewGuid().ToString();
-            destination.Value = AesEncryption.Encrypt(destination.Value, secret);
-            secrets[destination] = secret;
-        }
-
-        var responsePayment = await AddPaymentAsync(payment, options, cancellationToken);
-        if (responsePayment != null)
-        {
-            var firstZk = payment.Destinations?.FirstOrDefault(d => d.IsZk);
-            if (firstZk != null && secrets.TryGetValue(firstZk, out var firstSecret))
+            if (destination.Type == DestinationType.BitcoinAddress)
             {
-                var baseUrl = (options?.BaseUrl ?? _defaultOptions?.BaseUrl)?.GetUrl()?.TrimEnd('/') ?? "";
-                responsePayment.VerifyUrl = BuildVerifyUrl(baseUrl, firstZk.Value, firstSecret);
+                destination.Value = AesEncryption.Encrypt(destination.Value, secret);
+                destinationKeys.TryAdd(destination.Value, secret);
+            }
+            else if (destination.Type == DestinationType.Bolt11)
+            {
+                var hash = destination.Value.ToNormalizedHash();
+                destination.Value = AesEncryption.Encrypt(destination.Value, hash, deterministicNonce: true);
+                destinationKeys.Add(destination.Value, hash);
+            }
+            else
+            {
+                throw new BrantaPaymentException($"destination type '{destination.Type}' does not support ZK");
             }
         }
 
-        return (responsePayment, secrets);
+        var responsePayment = await AddPaymentAsync(payment, options, cancellationToken);
+
+        if (responsePayment != null && payment.Destinations?.Count > 0)
+        {
+            var keys = responsePayment.Destinations
+                .Where(d => d.ZkId != null && destinationKeys.ContainsKey(d.Value))
+                .ToDictionary(d => d.ZkId!, d => destinationKeys.GetValueOrDefault(d.Value)!);
+
+            var baseUrl = _defaultOptions.GetUri(options).AbsoluteUri?.TrimEnd('/') ?? "";
+            responsePayment.VerifyUrl = BuildVerifyUrl(baseUrl, payment.Destinations[0].Value, keys);
+        }
+
+        return (responsePayment, secret);
     }
 
     public async Task<List<Payment>> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var parser = new QRParser(qrText, _defaultOptions.GetUri(options));
+        var parser = new QRParser(qrText);
 
         if (parser.IsZK())
         {
-            return await GetZKPaymentAsync(parser.EncryptedText!, parser.EncryptionSecret!, options, cancellationToken);
+            return await GetZKPaymentsAsync(parser.EncryptedText!, parser.EncryptionSecret!, options, cancellationToken);
+        }
+        else if (parser.DestinationType == DestinationType.Bolt11 && parser.Destination != null)
+        {
+            return await GetBolt11PaymentsAsync(parser.Destination, options, cancellationToken);
         }
         else if (parser.Destination != null)
         {
@@ -165,6 +162,45 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         }
 
         return [];
+    }
+    
+    private async Task<List<Payment>> FetchPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
+    {
+        var httpClient = _httpClientFactory.CreateClient();
+        ConfigureClient(httpClient, options);
+
+        var response = await httpClient.GetAsync($"/v2/payments/{Uri.EscapeDataString(address)}", cancellationToken);
+
+        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength == 0)
+        {
+            return [];
+        }
+
+        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(_jsonOptions, cancellationToken) ?? [];
+
+        VerifyLogoUrls(httpClient, payments);
+
+        var baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
+        foreach (var payment in payments)
+        {
+            payment.VerifyUrl = BuildVerifyUrl(baseUrl, address);
+        }
+
+        return payments;
+    }
+
+    private async Task<List<Payment>> GetBolt11PaymentsAsync(string invoice, BrantaClientOptions? options, CancellationToken cancellationToken)
+    {
+        var normalized = invoice.ToLowerInvariant();
+        var secret = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
+        var payments = await FetchPaymentsAsync(secret, options, cancellationToken);
+
+        if (payments.Count > 0) return payments;
+
+        var privacy = options?.Privacy ?? _defaultOptions?.Privacy ?? PrivacyMode.Loose;
+        if (privacy == PrivacyMode.Strict) return [];
+
+        return await FetchPaymentsAsync(invoice, options, cancellationToken);
     }
 
     private Task<List<Payment>> GetPlainPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
@@ -193,10 +229,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     private void SetApiKey(HttpClient httpClient, BrantaClientOptions? options)
     {
-        var apiKey = options?.DefaultApiKey ?? _defaultOptions?.DefaultApiKey;
-
-        if (apiKey == null)
-            throw new BrantaPaymentException("Unauthorized");
+        var apiKey = (options?.DefaultApiKey ?? _defaultOptions?.DefaultApiKey) ?? throw new BrantaPaymentException("Unauthorized");
 
         httpClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
@@ -221,11 +254,37 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         request.Headers.Add("X-HMAC-Timestamp", timestamp);
     }
 
-    private static string BuildVerifyUrl(string baseUrl, string address, string? secret = null)
+    private static string BuildVerifyUrl(string baseUrl, string address, Dictionary<string, string>? keys = null)
     {
         var encoded = Uri.EscapeDataString(address);
-        return secret != null
-            ? $"{baseUrl}/v2/zk-verify/{encoded}#secret={secret}"
-            : $"{baseUrl}/v2/verify/{encoded}";
+        var url = $"{baseUrl}/v2/verify/{encoded}";
+
+        if (keys?.Count > 0)
+        {
+            var fragments = keys.Select(key => $"k-{key.Key}={key.Value}");
+            url += "#" + string.Join("&", fragments);
+        }
+
+        return url;
+    }
+
+    private static void VerifyLogoUrls(HttpClient httpClient, List<Payment> payments)
+    {
+        var baseOrigin = httpClient.BaseAddress?.GetLeftPart(UriPartial.Authority);
+
+        if (baseOrigin == null) return;
+
+        foreach (var payment in payments)
+        {
+            var logoUrl = payment.PlatformLogoUrl;
+
+            if (string.IsNullOrEmpty(logoUrl)) return;
+
+            if (!Uri.TryCreate(logoUrl, UriKind.Absolute, out var logoUri) ||
+                logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
+            {
+                throw new BrantaPaymentException("platformLogoUrl domain does not match the configured baseUrl domain");
+            }
+        }
     }
 }

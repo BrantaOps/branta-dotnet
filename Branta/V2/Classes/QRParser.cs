@@ -1,6 +1,5 @@
 using Branta.Enums;
-using Branta.Exceptions;
-using Microsoft.Extensions.Options;
+using Branta.Extensions;
 using System.Text.RegularExpressions;
 using System.Web;
 
@@ -16,7 +15,7 @@ public partial class QRParser
 
     public string? EncryptionSecret { get; set; }
 
-    public QRParser(string qrText, Uri baseUri)
+    public QRParser(string qrText)
     {
         var text = qrText.Trim();
 
@@ -55,15 +54,10 @@ public partial class QRParser
     private static DestinationType? GetDestinationType(string text)
     {
         if (text.StartsWith("bitcoin:", StringComparison.CurrentCultureIgnoreCase))
-        {
             return Enums.DestinationType.BitcoinAddress;
-        }
-        else if (text.StartsWith("lightning:lnbc", StringComparison.CurrentCultureIgnoreCase) ||
-            text.StartsWith("lightning:lntb", StringComparison.CurrentCultureIgnoreCase) ||
-            text.StartsWith("lightning:lnbcrt", StringComparison.CurrentCultureIgnoreCase))
-        {
+
+        if (text.StartsWith("lightning:") && GetDestination(text)?.IsBolt11() == true)
             return Enums.DestinationType.Bolt11;
-        }
 
         return null;
     }
