@@ -11,14 +11,27 @@ public class PaymentBuilder
         Destinations = []
     };
 
-    public PaymentBuilder AddDestination(string address, bool zk = false, DestinationType? type = null)
+    public PaymentBuilder AddDestination(string address, DestinationType? type = null)
     {
         payment.Destinations.Add(new Destination()
         {
             Value = address,
-            IsZk = zk,
-            Type = type
+            Type = type,
+            IsZk = false
         });
+
+        return this;
+    }
+
+    public PaymentBuilder SetZk()
+    {
+        var destination = payment.Destinations?.Last();
+
+        if (destination != null)
+        {
+            destination.IsZk = true;
+            destination.ZkId = Guid.NewGuid().ToString();
+        }
 
         return this;
     }
@@ -45,6 +58,13 @@ public class PaymentBuilder
     public PaymentBuilder SetTtl(int ttl)
     {
         payment.TTL = ttl;
+
+        return this;
+    }
+
+    public PaymentBuilder SetPlatformLogoUrl(string platformLogoUrl)
+    {
+        payment.PlatformLogoUrl = platformLogoUrl;
 
         return this;
     }

@@ -14,4 +14,6 @@ public class Destination
     public bool IsZk { get; set; }
 
     public DestinationType? Type { get; set; }
+
+    public string? ZkId { get; set; }
 }

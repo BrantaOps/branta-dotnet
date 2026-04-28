@@ -24,4 +24,9 @@ public class Payment
     public string? VerifyUrl { get; set; }
 
     public string? BtcPayServerPluginVersion { get; set; }
+
+    public string GetDefaultValue()
+    {
+        return Destinations?.FirstOrDefault()?.Value ?? throw new Exception("Payment has no destinations.");
+    }
 }
