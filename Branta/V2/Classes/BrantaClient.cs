@@ -154,7 +154,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         }
         else if (parser.DestinationType == DestinationType.Bolt11 && parser.Destination != null)
         {
-            return await GetBolt11PaymentsAsync(parser.Destination, options, cancellationToken);
+            return await GetZKPaymentsWithHashSecretAsync(parser.Destination, options, cancellationToken);
         }
         else if (parser.Destination != null)
         {
@@ -187,20 +187,6 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         }
 
         return payments;
-    }
-
-    private async Task<List<Payment>> GetBolt11PaymentsAsync(string invoice, BrantaClientOptions? options, CancellationToken cancellationToken)
-    {
-        var normalized = invoice.ToLowerInvariant();
-        var secret = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
-        var payments = await FetchPaymentsAsync(secret, options, cancellationToken);
-
-        if (payments.Count > 0) return payments;
-
-        var privacy = options?.Privacy ?? _defaultOptions?.Privacy ?? PrivacyMode.Loose;
-        if (privacy == PrivacyMode.Strict) return [];
-
-        return await FetchPaymentsAsync(invoice, options, cancellationToken);
     }
 
     private Task<List<Payment>> GetPlainPaymentsAsync(string address, BrantaClientOptions? options, CancellationToken cancellationToken)
