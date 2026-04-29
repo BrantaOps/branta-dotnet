@@ -15,6 +15,7 @@ public static class ConfigurationExtension
         {
             services.AddSingleton(Options.Create(defaultOptions));
         }
+        services.AddSingleton<ISecretGenerator, GuidSecretGenerator>();
         services.AddScoped<BrantaClient>();
 
         return services;

@@ -11,10 +11,11 @@ using System.Text.Json;
 
 namespace Branta.V2.Classes;
 
-public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaClientOptions> brantaClientOptions)
+public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaClientOptions> brantaClientOptions, ISecretGenerator? secretGenerator = null)
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly BrantaClientOptions? _defaultOptions = brantaClientOptions?.Value;
+    private readonly ISecretGenerator _secretGenerator = secretGenerator ?? new GuidSecretGenerator();
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -104,7 +105,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
     public async Task<(Payment?, string)> AddZKPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var secret = Guid.NewGuid().ToString();
+        var secret = _secretGenerator.Generate();
 
         var destinationKeys = new Dictionary<string, string>();
 
@@ -114,7 +115,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
             if (destination.Type == DestinationType.BitcoinAddress)
             {
-                destination.Value = AesEncryption.Encrypt(destination.Value, secret);
+                destination.Value = AesEncryption.Encrypt(destination.Value, secret, deterministicNonce: _secretGenerator.DeterministicNonce);
                 destinationKeys.TryAdd(destination.Value, secret);
             }
             else if (destination.Type == DestinationType.Bolt11)
@@ -131,12 +132,12 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
         var responsePayment = await AddPaymentAsync(payment, options, cancellationToken);
 
+        var keys = responsePayment?.Destinations
+            .Where(d => d.ZkId != null && destinationKeys.ContainsKey(d.Value))
+            .ToDictionary(d => d.ZkId!, d => destinationKeys.GetValueOrDefault(d.Value)!);
+
         if (responsePayment != null && payment.Destinations?.Count > 0)
         {
-            var keys = responsePayment.Destinations
-                .Where(d => d.ZkId != null && destinationKeys.ContainsKey(d.Value))
-                .ToDictionary(d => d.ZkId!, d => destinationKeys.GetValueOrDefault(d.Value)!);
-
             var baseUrl = _defaultOptions.GetUri(options).AbsoluteUri?.TrimEnd('/') ?? "";
             responsePayment.VerifyUrl = BuildVerifyUrl(baseUrl, payment.Destinations[0].Value, keys);
         }
@@ -247,8 +248,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
         if (keys?.Count > 0)
         {
-            var fragments = keys.Select(key => $"k-{key.Key}={key.Value}");
-            url += "#" + string.Join("&", fragments);
+            url += keys.ToUrlFragment();
         }
 
         return url;
