@@ -15,6 +15,7 @@ public class BaseBrantaClientTests
 {
     protected readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
     protected readonly Mock<IOptions<BrantaClientOptions>> _optionsMock;
+    protected readonly Mock<ISecretGenerator> _secretGeneratorMock;
     protected readonly BrantaClientOptions _defaultOptions;
     protected readonly BrantaClient _brantaClient;
 
@@ -27,6 +28,7 @@ public class BaseBrantaClientTests
     {
         _httpClientFactoryMock = new Mock<IHttpClientFactory>();
         _optionsMock = new Mock<IOptions<BrantaClientOptions>>();
+        _secretGeneratorMock = new Mock<ISecretGenerator>();
         _defaultOptions = new BrantaClientOptions
         {
             BaseUrl = BrantaServerBaseUrl.Localhost,
@@ -34,7 +36,7 @@ public class BaseBrantaClientTests
             Privacy = PrivacyMode.Loose
         };
         _optionsMock.Setup(x => x.Value).Returns(_defaultOptions);
-        _brantaClient = new BrantaClient(_httpClientFactoryMock.Object, _optionsMock.Object);
+        _brantaClient = new BrantaClient(_httpClientFactoryMock.Object, _optionsMock.Object, _secretGeneratorMock.Object);
     }
 
     protected HttpClient SetupHttpClient(Payment payment)

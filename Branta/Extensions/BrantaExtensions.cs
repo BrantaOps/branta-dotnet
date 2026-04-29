@@ -34,4 +34,11 @@ public static class BrantaExtensions
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
+
+    public static string ToUrlFragment(this Dictionary<string, string> keys)
+    {
+        var fragments = keys.Select(key => $"k-{key.Key}={key.Value}");
+
+        return "#" + string.Join("&", fragments);
+    }
 }

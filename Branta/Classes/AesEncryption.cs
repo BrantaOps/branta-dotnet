@@ -17,6 +17,11 @@ public class AesEncryption
                 using var rng = RandomNumberGenerator.Create();
                 rng.GetBytes(iv);
             }
+            else
+            {
+                byte[] derived = HMACSHA256.HashData(keyData, Encoding.UTF8.GetBytes(value));
+                Buffer.BlockCopy(derived, 0, iv, 0, iv.Length);
+            }
 
             byte[] plaintext = Encoding.UTF8.GetBytes(value);
             byte[] ciphertext = new byte[plaintext.Length];

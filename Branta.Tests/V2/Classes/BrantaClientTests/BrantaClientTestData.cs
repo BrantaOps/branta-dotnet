@@ -9,7 +9,7 @@ namespace Branta.Tests.V2.Classes.BrantaClientTests;
 public class DataBrantaClientTests : BaseBrantaClientTests
 {
     public const string BITCOIN_ADDRESS = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-    public const string ENCRYPTED_BITCOIN_ADDRESS = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
+    public const string ENCRYPTED_BITCOIN_ADDRESS = "idaZfzsAvZDBGWSy1Xq6VKiCLwKz0HD/5S6IflXw8nEtg7NjxbgtAzQHTtHH0jyU6nfqppiXTon/A1nfCEg=";
     public const string ENCRYPTED_BITCOIN_SECRET = "1234";
 
     public Payment SingleBitcoinAddress = GetSingleBitcoinAddress(BITCOIN_ADDRESS);
