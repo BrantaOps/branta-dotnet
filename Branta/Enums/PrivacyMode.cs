@@ -9,7 +9,8 @@ namespace Branta.Enums;
 ///       Only ZK (zero-knowledge / encrypted) on-chain lookups are permitted.
 ///       Calling <c>GetPaymentsAsync</c> directly will throw a <c>BrantaPaymentException</c>;
 ///       plain-address branches inside <c>GetPaymentsByQrCodeAsync</c> will silently return an
-///       empty list. All POST operations are unaffected by this setting.
+///       empty list. POST operations (<c>AddPaymentAsync</c>) are also restricted: all destinations
+///       must have <c>IsZk = true</c>, otherwise a <c>BrantaPaymentException</c> is thrown.
 ///     </description>
 ///   </item>
 ///   <item>

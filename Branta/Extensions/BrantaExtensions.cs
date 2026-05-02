@@ -18,15 +18,38 @@ public static class BrantaExtensions
 
     public static Uri GetUri(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
     {
+        return new Uri(defaultOptions.GetBaseUrl(overrideOptions));
+    }
+
+    public static string GetBaseUrl(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
+    {
         var baseUrl = overrideOptions?.BaseUrl ?? defaultOptions?.BaseUrl ?? throw new Exception("Branta: BaseUrl is a required option.");
 
-        return new Uri(baseUrl.GetUrl());
+        return baseUrl.GetUrl();
     }
+
+    public static PrivacyMode GetPrivacy(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions, PrivacyMode fallback = PrivacyMode.Strict)
+        => overrideOptions?.Privacy ?? defaultOptions?.Privacy ?? fallback;
+
+    public static string? GetApiKey(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
+        => overrideOptions?.DefaultApiKey ?? defaultOptions?.DefaultApiKey;
+
+    public static string? GetHmacSecret(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
+        => overrideOptions?.HmacSecret ?? defaultOptions?.HmacSecret;
 
     public static bool IsBolt11(this string value) =>
         value.StartsWith("lnbc", StringComparison.OrdinalIgnoreCase) ||
         value.StartsWith("lntb", StringComparison.OrdinalIgnoreCase) ||
         value.StartsWith("lnbcrt", StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsArk(this string value) => value.StartsWith("ark1", StringComparison.OrdinalIgnoreCase);
+
+    public static DestinationType? GetHashZkType(this string value)
+    {
+        if (value.IsBolt11()) return DestinationType.Bolt11;
+        if (value.IsArk()) return DestinationType.ArkAddress;
+        return null;
+    }
 
     public static string ToNormalizedHash(this string value)
     {
