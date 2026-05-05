@@ -13,7 +13,7 @@ namespace Branta.Tests.V2.Services;
 
 public class BrantaServiceTests
 {
-    private readonly Mock<IBrantaClientNew> _clientMock;
+    private readonly Mock<IBrantaClient> _clientMock;
     private readonly Mock<IAesEncryption> _aesEncryptionMock;
     private readonly Mock<ISecretGenerator> _secretGeneratorMock;
     private readonly BrantaClientOptions _defaultOptions;
@@ -62,7 +62,7 @@ public class BrantaServiceTests
 
     public BrantaServiceTests()
     {
-        _clientMock = new Mock<IBrantaClientNew>();
+        _clientMock = new Mock<IBrantaClient>();
         _aesEncryptionMock = new Mock<IAesEncryption>();
         _secretGeneratorMock = new Mock<ISecretGenerator>();
         _secretGeneratorMock.Setup(g => g.Generate()).Returns(Secret);
