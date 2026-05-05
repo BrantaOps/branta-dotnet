@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace Branta.V2.Services;
 
-public class BrantaService(IBrantaClientNew client, IAesEncryption aesEncryption, IOptions<BrantaClientOptions> defaultOptions, ISecretGenerator? secretGenerator = null) : IBrantaService
+public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, IOptions<BrantaClientOptions> defaultOptions, ISecretGenerator? secretGenerator = null) : IBrantaService
 {
     private readonly BrantaClientOptions _defaultOptions = defaultOptions.Value;
     private readonly ISecretGenerator _secretGenerator = secretGenerator ?? new GuidSecretGenerator();
