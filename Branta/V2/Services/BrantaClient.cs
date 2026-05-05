@@ -9,9 +9,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Branta.V2.Classes;
+namespace Branta.V2.Services;
 
-public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaClientOptions> brantaClientOptions) : IBrantaClientNew
+public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaClientOptions> brantaClientOptions) : IBrantaClient
 {
     private readonly BrantaClientOptions? _defaultOptions = brantaClientOptions?.Value;
 

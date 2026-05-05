@@ -3,7 +3,7 @@ using Branta.V2.Models;
 
 namespace Branta.V2.Interfaces;
 
-public interface IBrantaClientNew
+public interface IBrantaClient
 {
     Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaClientOptions? options = null, CancellationToken cancellationToken = default);
     Task<Payment?> PostPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default);
