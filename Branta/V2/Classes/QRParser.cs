@@ -1,7 +1,6 @@
 using Branta.Enums;
 using Branta.Extensions;
 using System.Text.RegularExpressions;
-using System.Web;
 
 namespace Branta.V2.Classes;
 
@@ -35,19 +34,19 @@ public partial class QRParser
             if (dest != null)
                 Destinations.Add(new QrDestination(dest, GetDestinationType(text)));
 
-            var queryParams = HttpUtility.ParseQueryString(uri.Query);
-            OnChainEncryptionText = queryParams["branta_id"];
-            OnChainEncryptionSecret = queryParams["branta_secret"];
+            var queryParams = ParseQueryString(uri.Query);
+            OnChainEncryptionText = queryParams.GetValueOrDefault("branta_id");
+            OnChainEncryptionSecret = queryParams.GetValueOrDefault("branta_secret");
 
-            var lightningValue = queryParams["lightning"];
+            var lightningValue = queryParams.GetValueOrDefault("lightning");
             if (lightningValue != null)
                 Destinations.Add(new QrDestination(lightningValue, DetectPlainTextType(lightningValue)));
 
-            var bolt12Value = queryParams["bolt12"];
+            var bolt12Value = queryParams.GetValueOrDefault("bolt12");
             if (bolt12Value != null)
                 Destinations.Add(new QrDestination(bolt12Value, DetectPlainTextType(bolt12Value)));
 
-            var arkValue = queryParams["ark"];
+            var arkValue = queryParams.GetValueOrDefault("ark");
             if (arkValue != null)
                 Destinations.Add(new QrDestination(arkValue, DetectPlainTextType(arkValue)));
 
@@ -103,6 +102,17 @@ public partial class QRParser
 
     private static bool IsTronAddress(string value)
         => value.Length == 34 && value.StartsWith('T');
+
+    private static Dictionary<string, string> ParseQueryString(string query)
+        => query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Split('=', 2))
+            .Where(p => p[0].Length > 0)
+            .ToDictionary(
+                p => Uri.UnescapeDataString(p[0]),
+                p => p.Length > 1 ? Uri.UnescapeDataString(p[1]) : string.Empty,
+                StringComparer.OrdinalIgnoreCase
+            );
 
     [GeneratedRegex(@"(?<=:)[^?]*")]
     private static partial Regex ColonToQuestionMarkRegex();

@@ -19,12 +19,24 @@ public class QRParserTests
     [Fact]
     public void QRParser_BitcoinUriWithBrantaParams_SetsZkProperties()
     {
-        var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?branta_id=encrypted-bitcoin-address&branta_secret=1234");
+        // branta_id is URI-encoded per BIP-321; value "abc+def=" encoded as "abc%2Bdef%3D"
+        var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?branta_id=abc%2Bdef%3D&branta_secret=1234");
 
         Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result.Destination);
         Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
-        Assert.Equal("encrypted-bitcoin-address", result.OnChainEncryptionText);
+        Assert.Equal("abc+def=", result.OnChainEncryptionText);
         Assert.Equal("1234", result.OnChainEncryptionSecret);
+    }
+
+    [Fact]
+    public void QRParser_BitcoinUri_DecodesUriEncodedLightningParam()
+    {
+        // lightning value is URI-encoded per BIP-321; value "lnbc100n1ptest" encoded as "lnbc100n1ptest%3Dpadded"
+        var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?lightning=lnbc100n1ptest%3Dpadded");
+
+        Assert.Equal(2, result.Destinations.Count);
+        Assert.Equal("lnbc100n1ptest=padded", result.Destinations[1].Value);
+        Assert.Equal(DestinationType.Bolt11, result.Destinations[1].Type);
     }
 
     [Fact]
