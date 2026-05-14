@@ -132,6 +132,18 @@ public class BrantaServiceTests
     }
 
     [Fact]
+    public async Task GetPaymentsByQrCodeAsync_UppercaseLightningBolt11Uri_UsesEncryptedInvoiceLookup()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([PlainBolt11Payment]);
+
+        await _service.GetPaymentsByQrCodeAsync($"lightning:{Bolt11Invoice.ToUpperInvariant()}");
+
+        _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetPaymentsByQrCodeAsync_CombinedZkQr_DecryptsBothAddressAndInvoice()
     {
         var payment = new PaymentBuilder()

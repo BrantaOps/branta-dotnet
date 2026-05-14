@@ -70,21 +70,22 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         if (hashZkType == null && _defaultOptions.GetPrivacy(options) == PrivacyMode.Strict)
             throw new BrantaPaymentException("PrivacyMode.Strict does not permit plain-text lookups for this destination type.");
 
+        var normalizedDestination = hashZkType.HasValue ? destinationValue.ToLowerInvariant() : destinationValue;
         var lookupValue = hashZkType.HasValue
-            ? aesEncryption.Encrypt(destinationValue, destinationValue.ToNormalizedHash(), deterministicNonce: true)
+            ? aesEncryption.Encrypt(normalizedDestination, normalizedDestination.ToNormalizedHash(), deterministicNonce: true)
             : destinationValue;
 
         var payments = await client.GetPaymentsAsync(lookupValue, options, ct);
 
         if (payments.Count == 0 && hashZkType.HasValue && _defaultOptions.GetPrivacy(options) != PrivacyMode.Strict)
         {
-            lookupValue = destinationValue;
+            lookupValue = normalizedDestination;
             payments = await client.GetPaymentsAsync(lookupValue, options, ct);
         }
 
         foreach (var payment in payments)
         {
-            var destinationKeys = DecryptDestinations(payment.Destinations, destinationValue, destinationEncryptionKey, hashZkType);
+            var destinationKeys = DecryptDestinations(payment.Destinations, normalizedDestination, destinationEncryptionKey, hashZkType);
             payment.VerifyUrl = BuildVerifyUrl(options, lookupValue, destinationKeys);
         }
 
@@ -140,8 +141,9 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 if (!hashZkType.HasValue)
                     throw new BrantaPaymentException($"destination type '{destination.Type}' does not support ZK");
 
-                var key = destination.Value.ToNormalizedHash();
-                destination.Value = aesEncryption.Encrypt(destination.Value, key, deterministicNonce: true);
+                var normalizedValue = destination.Value.ToLowerInvariant();
+                var key = normalizedValue.ToNormalizedHash();
+                destination.Value = aesEncryption.Encrypt(normalizedValue, key, deterministicNonce: true);
                 encryptedToKey[destination.Value] = key;
             }
         }
