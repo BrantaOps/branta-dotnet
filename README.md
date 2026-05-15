@@ -107,11 +107,13 @@ The primary service interface registered by `ConfigureBrantaServices()`.
 **Prefer `GetPaymentsByQrCodeAsync` for integrations.** It parses the raw QR text and correctly resolves multiple ZK values in a single scan. `GetPaymentsAsync` only handles a single destination value and does not support multi-value ZK lookups.
 
 ```cs
-Task<List<Payment>> GetPaymentsByQrCodeAsync(string qrText); // recommended
-Task<List<Payment>> GetPaymentsAsync(string destinationValue, string? destinationEncryptionKey = null);
-Task<(Payment, string)> AddPaymentAsync(Payment payment);
+Task<PaymentsResult> GetPaymentsByQrCodeAsync(string qrText); // recommended
+Task<PaymentsResult> GetPaymentsAsync(string destinationValue, string? destinationEncryptionKey = null);
+Task<(Payment Payment, string Secret, string VerifyUrl)> AddPaymentAsync(Payment payment);
 Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null);
 ```
+
+`PaymentsResult` contains the list of matching `Payments` and the `VerifyUrl` to display to the user — `VerifyUrl` is always returned, even when `Payments` is empty.
 
 → [`Branta/V2/Interfaces/IBrantaService.cs`](Branta/V2/Interfaces/IBrantaService.cs)
 

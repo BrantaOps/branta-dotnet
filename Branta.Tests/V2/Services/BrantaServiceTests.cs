@@ -103,7 +103,7 @@ public class BrantaServiceTests
         var result = await _service.GetPaymentsByQrCodeAsync(qrText);
 
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
-        Assert.Equal(BitcoinAddress, result[0].Destinations[0].Value);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class BrantaServiceTests
         var result = await _service.GetPaymentsByQrCodeAsync($"bitcoin:{BitcoinAddress}");
 
         _clientMock.Verify(c => c.GetPaymentsAsync(BitcoinAddress, null, default), Times.Once);
-        Assert.Single(result);
+        Assert.Single(result.Payments);
     }
 
     [Fact]
@@ -159,11 +159,11 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsByQrCodeAsync($"lightning:{Bolt11Invoice}");
 
-        Assert.Single(result);
-        Assert.Equal(DecryptedBolt11, result[0].Destinations[0].Value);
-        Assert.False(result[0].Destinations[0].IsEncrypted);
-        Assert.Equal(EncryptedBitcoinAddress, result[0].Destinations[1].Value);
-        Assert.True(result[0].Destinations[1].IsEncrypted);
+        Assert.Single(result.Payments);
+        Assert.Equal(DecryptedBolt11, result.Payments[0].Destinations[0].Value);
+        Assert.False(result.Payments[0].Destinations[0].IsEncrypted);
+        Assert.Equal(EncryptedBitcoinAddress, result.Payments[0].Destinations[1].Value);
+        Assert.True(result.Payments[0].Destinations[1].IsEncrypted);
     }
 
     [Fact]
@@ -188,10 +188,10 @@ public class BrantaServiceTests
         var zkId = payment.Destinations[0].ZkId!;
         var bolt11ZkId = payment.Destinations[1].ZkId!;
         var arkZkId = payment.Destinations[2].ZkId!;
-        Assert.Single(result);
-        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}&k-{bolt11ZkId}={Bolt11Hash}&k-{arkZkId}={ArkHash}", result[0].VerifyUrl);
-        Assert.Equal(BitcoinAddress, result[0].Destinations[0].Value);
-        Assert.Equal(DecryptedBolt11, result[0].Destinations[1].Value);
+        Assert.Single(result.Payments);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}&k-{bolt11ZkId}={Bolt11Hash}&k-{arkZkId}={ArkHash}", result.VerifyUrl);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.Equal(DecryptedBolt11, result.Payments[0].Destinations[1].Value);
         _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedBitcoinAddress, Secret), Times.Once);
         _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedBolt11, Bolt11Hash), Times.Once);
     }
@@ -209,8 +209,8 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(BitcoinAddress);
 
-        Assert.Single(result);
-        Assert.Equal(BitcoinAddress, result[0].Destinations[0].Value);
+        Assert.Single(result.Payments);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
     }
 
     [Fact]
@@ -222,7 +222,8 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(BitcoinAddress);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Payments);
+        Assert.Equal($"http://localhost:3000/v2/verify/{BitcoinAddress}", result.VerifyUrl);
     }
 
     [Fact]
@@ -267,8 +268,8 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: Secret);
 
-        Assert.Single(result);
-        Assert.Equal(BitcoinAddress, result[0].Destinations[0].Value);
+        Assert.Single(result.Payments);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
         _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedBitcoinAddress, Secret), Times.Once);
     }
 
@@ -281,9 +282,9 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: null);
 
-        Assert.Single(result);
-        Assert.Equal(EncryptedBitcoinAddress, result[0].Destinations[0].Value);
-        Assert.True(result[0].Destinations[0].IsEncrypted);
+        Assert.Single(result.Payments);
+        Assert.Equal(EncryptedBitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.True(result.Payments[0].Destinations[0].IsEncrypted);
         _aesEncryptionMock.Verify(e => e.Decrypt(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -299,9 +300,9 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: "wrong-key");
 
-        Assert.Single(result);
-        Assert.Equal(EncryptedBitcoinAddress, result[0].Destinations[0].Value);
-        Assert.True(result[0].Destinations[0].IsEncrypted);
+        Assert.Single(result.Payments);
+        Assert.Equal(EncryptedBitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.True(result.Payments[0].Destinations[0].IsEncrypted);
     }
 
     [Fact]
@@ -313,7 +314,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(BitcoinAddress, destinationEncryptionKey: Secret);
 
-        Assert.Equal(BitcoinAddress, result[0].Destinations[0].Value);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
         _aesEncryptionMock.Verify(e => e.Decrypt(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -326,8 +327,8 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(Bolt11Invoice);
 
-        Assert.Single(result);
-        Assert.Equal(DecryptedBolt11, result[0].Destinations[0].Value);
+        Assert.Single(result.Payments);
+        Assert.Equal(DecryptedBolt11, result.Payments[0].Destinations[0].Value);
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
         _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedBolt11, Bolt11Hash), Times.Once);
     }
@@ -342,7 +343,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(nonBolt11);
 
-        Assert.Equal(EncryptedBolt11, result[0].Destinations[0].Value);
+        Assert.Equal(EncryptedBolt11, result.Payments[0].Destinations[0].Value);
         _clientMock.Verify(c => c.GetPaymentsAsync(nonBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
         _aesEncryptionMock.Verify(e => e.Decrypt(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
@@ -356,7 +357,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(Bolt11Invoice);
 
-        Assert.Equal(Bolt11Invoice, result[0].Destinations[0].Value);
+        Assert.Equal(Bolt11Invoice, result.Payments[0].Destinations[0].Value);
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
         _aesEncryptionMock.Verify(e => e.Decrypt(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
@@ -370,7 +371,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(BitcoinAddress);
 
-        Assert.Equal($"http://localhost:3000/v2/verify/{BitcoinAddress}", result[0].VerifyUrl);
+        Assert.Equal($"http://localhost:3000/v2/verify/{BitcoinAddress}", result.VerifyUrl);
     }
 
     [Fact]
@@ -385,7 +386,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(Bolt11Invoice);
 
-        Assert.Equal($"http://localhost:3000/v2/verify/{Bolt11Invoice}", result[0].VerifyUrl);
+        Assert.Equal($"http://localhost:3000/v2/verify/{Bolt11Invoice}", result.VerifyUrl);
     }
 
     [Fact]
@@ -403,7 +404,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: Secret);
 
-        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}", result[0].VerifyUrl);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}", result.VerifyUrl);
     }
 
     [Fact]
@@ -421,7 +422,7 @@ public class BrantaServiceTests
 
         var result = await _service.GetPaymentsAsync(Bolt11Invoice);
 
-        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBolt11}#k-{zkId}={Bolt11Hash}", result[0].VerifyUrl);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBolt11}#k-{zkId}={Bolt11Hash}", result.VerifyUrl);
     }
 
     [Fact]
@@ -447,12 +448,27 @@ public class BrantaServiceTests
         var zkIdBolt11 = payment.Destinations[1].ZkId!;
         Assert.Equal(
             $"http://localhost:3000/v2/verify/{EncryptedBolt11}#k-{zkIdBitcoin}={Secret}&k-{zkIdBolt11}={Bolt11Hash}",
-            result[0].VerifyUrl);
+            result.VerifyUrl);
 
         result = await _service.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: Secret);
 
         zkIdBitcoin = payment.Destinations[0].ZkId!;
-        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkIdBitcoin}={Secret}", result[0].VerifyUrl);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkIdBitcoin}={Secret}", result.VerifyUrl);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_LooseMode_Bolt11NotFound_VerifyUrlUsesPlainValue()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(It.IsAny<string>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await _service.GetPaymentsAsync(Bolt11Invoice);
+
+        Assert.Empty(result.Payments);
+        Assert.Equal($"http://localhost:3000/v2/verify/{Bolt11Invoice}", result.VerifyUrl);
+        _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _clientMock.Verify(c => c.GetPaymentsAsync(Bolt11Invoice, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
@@ -494,7 +510,7 @@ public class BrantaServiceTests
             .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(responsePayment);
 
-        var (result, secret) = await _service.AddPaymentAsync(payment);
+        var (_, secret, _) = await _service.AddPaymentAsync(payment);
 
         _aesEncryptionMock.Verify(e => e.Encrypt(BitcoinAddress, Secret, false), Times.Once);
         Assert.Equal(Secret, secret);
@@ -570,9 +586,9 @@ public class BrantaServiceTests
             .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(responsePayment);
 
-        var (result, _) = await _service.AddPaymentAsync(payment);
+        var (_, _, verifyUrl) = await _service.AddPaymentAsync(payment);
 
-        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}", result.VerifyUrl);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}", verifyUrl);
     }
 
     [Fact]
@@ -593,7 +609,7 @@ public class BrantaServiceTests
             .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(responsePayment);
 
-        var (_, secret) = await _service.AddPaymentAsync(payment);
+        var (_, secret, _) = await _service.AddPaymentAsync(payment);
 
         Assert.Equal(Secret, secret);
     }
@@ -714,7 +730,8 @@ public class BrantaServiceTests
 
         var result = await _strictService.GetPaymentsAsync(Bolt11Invoice);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Payments);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBolt11}", result.VerifyUrl);
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
         _clientMock.Verify(c => c.GetPaymentsAsync(Bolt11Invoice, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -724,7 +741,8 @@ public class BrantaServiceTests
     {
         var result = await _strictService.GetPaymentsByQrCodeAsync($"bitcoin:{BitcoinAddress}");
 
-        Assert.Empty(result);
+        Assert.Empty(result.Payments);
+        Assert.Equal($"http://localhost:3000/v2/verify/{BitcoinAddress}", result.VerifyUrl);
         _clientMock.Verify(c => c.GetPaymentsAsync(It.IsAny<string>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -738,7 +756,7 @@ public class BrantaServiceTests
         var qrText = $"bitcoin:{BitcoinAddress}?branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
         var result = await _strictService.GetPaymentsByQrCodeAsync(qrText);
 
-        Assert.Single(result);
+        Assert.Single(result.Payments);
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
