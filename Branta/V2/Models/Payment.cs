@@ -21,8 +21,6 @@ public class Payment
 
     public string? PlatformLogoLightUrl { get; set; }
 
-    public string? VerifyUrl { get; set; }
-
     public string? BtcPayServerPluginVersion { get; set; }
 
     public string GetDefaultValue()

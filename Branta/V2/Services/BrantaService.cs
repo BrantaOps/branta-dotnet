@@ -13,8 +13,8 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
 {
     private readonly BrantaClientOptions _defaultOptions = defaultOptions.Value;
     private readonly ISecretGenerator _secretGenerator = secretGenerator ?? new GuidSecretGenerator();
-    
-    public Task<List<Payment>> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken ct = default)
+
+    public Task<PaymentsResult> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken ct = default)
     {
         var parser = new QRParser(qrText);
 
@@ -29,24 +29,24 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
 
         var destination = parser.Destination!;
         if (_defaultOptions.GetPrivacy(options) == PrivacyMode.Strict && destination.GetHashZkType() == null)
-            return Task.FromResult(new List<Payment>());
+            return Task.FromResult(new PaymentsResult { Payments = [], VerifyUrl = BuildVerifyUrl(options, destination) });
 
         return GetPaymentsAsync(destination, null, options, ct);
     }
 
-    private async Task<List<Payment>> GetPaymentsForZkAsync(string lookupValue, string? encryptionKey, IReadOnlyList<string> additionalHashValues, BrantaClientOptions? options, CancellationToken ct)
+    private async Task<PaymentsResult> GetPaymentsForZkAsync(string lookupValue, string? encryptionKey, IReadOnlyList<string> additionalHashValues, BrantaClientOptions? options, CancellationToken ct)
     {
         var payments = await client.GetPaymentsAsync(lookupValue, options, ct);
 
+        var keys = new Dictionary<string, string>();
         foreach (var payment in payments)
         {
-            var keys = DecryptDestinations(payment.Destinations, lookupValue, encryptionKey, null);
+            DecryptDestinations(payment.Destinations, lookupValue, encryptionKey, null, keys);
             foreach (var value in additionalHashValues)
                 DecryptHashZkDestinations(payment.Destinations, value, keys);
-            payment.VerifyUrl = BuildVerifyUrl(options, lookupValue, keys);
         }
 
-        return payments;
+        return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
     private void DecryptHashZkDestinations(List<Destination> destinations, string plainValue, Dictionary<string, string> keys)
@@ -71,7 +71,7 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         }
     }
 
-    public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, string? destinationEncryptionKey = null, BrantaClientOptions? options = null, CancellationToken ct = default)
+    public async Task<PaymentsResult> GetPaymentsAsync(string destinationValue, string? destinationEncryptionKey = null, BrantaClientOptions? options = null, CancellationToken ct = default)
     {
         var hashZkType = destinationValue.GetHashZkType();
 
@@ -91,19 +91,17 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
             payments = await client.GetPaymentsAsync(lookupValue, options, ct);
         }
 
+        var keys = new Dictionary<string, string>();
         foreach (var payment in payments)
         {
-            var destinationKeys = DecryptDestinations(payment.Destinations, normalizedDestination, destinationEncryptionKey, hashZkType);
-            payment.VerifyUrl = BuildVerifyUrl(options, lookupValue, destinationKeys);
+            DecryptDestinations(payment.Destinations, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
         }
 
-        return payments;
+        return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
-    private Dictionary<string, string> DecryptDestinations(List<Destination> destinations, string destinationValue, string? encryptionKey, DestinationType? hashZkType)
+    private void DecryptDestinations(List<Destination> destinations, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys)
     {
-        var keys = new Dictionary<string, string>();
-
         foreach (var destination in destinations)
         {
             destination.IsEncrypted = destination.IsZk;
@@ -138,11 +136,9 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 }
             }
         }
-
-        return keys;
     }
 
-    public async Task<(Payment, string)> AddPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken ct = default)
+    public async Task<(Payment Payment, string Secret, string VerifyUrl)> AddPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken ct = default)
     {
         if (_defaultOptions.GetPrivacy(options) == PrivacyMode.Strict && payment.Destinations.Any(d => !d.IsZk))
             throw new BrantaPaymentException("PrivacyMode.Strict requires all destinations to be ZK; one or more destinations have IsZk = false.");
@@ -180,9 +176,9 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
             .ToDictionary(d => d.ZkId!, d => encryptedToKey[d.Value]);
 
         var primaryValue = payment.Destinations.FirstOrDefault()?.Value ?? string.Empty;
-        responsePayment.VerifyUrl = BuildVerifyUrl(options, primaryValue, keys);
+        var verifyUrl = BuildVerifyUrl(options, primaryValue, keys);
 
-        return (responsePayment, secret);
+        return (responsePayment, secret, verifyUrl);
     }
 
     public Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null, CancellationToken ct = default)
