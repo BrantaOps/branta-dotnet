@@ -58,8 +58,16 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         foreach (var destination in destinations)
         {
             if (!destination.IsZk || destination.Type != hashZkType.Value) continue;
-            destination.Value = aesEncryption.Decrypt(destination.Value, key);
-            keys.TryAdd(destination.ZkId!, key);
+            try
+            {
+                destination.Value = aesEncryption.Decrypt(destination.Value, key);
+                destination.IsEncrypted = false;
+                keys.TryAdd(destination.ZkId!, key);
+            }
+            catch
+            {
+                // Key didn't match this destination — leave it encrypted.
+            }
         }
     }
 
@@ -98,20 +106,36 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
 
         foreach (var destination in destinations)
         {
+            destination.IsEncrypted = destination.IsZk;
             if (!destination.IsZk) continue;
 
             if (destination.Type == DestinationType.BitcoinAddress)
             {
-                if (encryptionKey == null) throw new Exception("Payment is ZK but no destination encryption key was provided.");
-
-                destination.Value = aesEncryption.Decrypt(destination.Value, encryptionKey);
-                keys.TryAdd(destination.ZkId!, encryptionKey);
+                if (encryptionKey == null) continue;
+                try
+                {
+                    destination.Value = aesEncryption.Decrypt(destination.Value, encryptionKey);
+                    destination.IsEncrypted = false;
+                    keys.TryAdd(destination.ZkId!, encryptionKey);
+                }
+                catch
+                {
+                    // Key didn't match this destination — leave it encrypted.
+                }
             }
             else if (hashZkType.HasValue && destination.Type == hashZkType.Value)
             {
                 var key = destinationValue.ToNormalizedHash();
-                destination.Value = aesEncryption.Decrypt(destination.Value, key);
-                keys.TryAdd(destination.ZkId!, key);
+                try
+                {
+                    destination.Value = aesEncryption.Decrypt(destination.Value, key);
+                    destination.IsEncrypted = false;
+                    keys.TryAdd(destination.ZkId!, key);
+                }
+                catch
+                {
+                    // Key didn't match this destination — leave it encrypted.
+                }
             }
         }
 
