@@ -13,6 +13,9 @@ public class Destination
     [JsonPropertyName("zk")]
     public bool IsZk { get; set; }
 
+    [JsonIgnore]
+    public bool IsEncrypted { get; set; }
+
     public DestinationType? Type { get; set; }
 
     public string? ZkId { get; set; }
