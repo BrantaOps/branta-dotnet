@@ -75,7 +75,7 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
     {
         var hashZkType = destinationValue.GetHashZkType();
 
-        if (hashZkType == null && _defaultOptions.GetPrivacy(options) == PrivacyMode.Strict)
+        if (hashZkType == null && destinationEncryptionKey == null && _defaultOptions.GetPrivacy(options) == PrivacyMode.Strict)
             throw new BrantaPaymentException("PrivacyMode.Strict does not permit plain-text lookups for this destination type.");
 
         var normalizedDestination = hashZkType.HasValue ? destinationValue.ToLowerInvariant() : destinationValue;
