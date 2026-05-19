@@ -695,6 +695,58 @@ public class BrantaServiceTests
     }
 
     [Fact]
+    public async Task GetPaymentsAsync_StrictMode_EncryptedBitcoinAddress_WithSecret_DecryptsDestination()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([ZkBitcoinPayment]);
+
+        var result = await _strictService.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: Secret);
+
+        Assert.Single(result.Payments);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.False(result.Payments[0].Destinations[0].IsEncrypted);
+        _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedBitcoinAddress, Secret), Times.Once);
+        _aesEncryptionMock.Verify(e => e.Encrypt(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_StrictMode_EncryptedBitcoinAddress_WithSecret_SetsVerifyUrlWithKeyFragment()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination(EncryptedBitcoinAddress, type: DestinationType.BitcoinAddress)
+            .SetZk()
+            .Build();
+        var zkId = payment.Destinations[0].ZkId!;
+
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        var result = await _strictService.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: Secret);
+
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-{zkId}={Secret}", result.VerifyUrl);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_StrictMode_EncryptedBitcoinAddress_WrongKey_LeavesEncrypted()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([ZkBitcoinPayment]);
+        _aesEncryptionMock
+            .Setup(e => e.Decrypt(EncryptedBitcoinAddress, "wrong-key"))
+            .Throws(new Exception("Decryption failed: auth tag mismatch"));
+
+        var result = await _strictService.GetPaymentsAsync(EncryptedBitcoinAddress, destinationEncryptionKey: "wrong-key");
+
+        Assert.Single(result.Payments);
+        Assert.Equal(EncryptedBitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.True(result.Payments[0].Destinations[0].IsEncrypted);
+    }
+
+    [Fact]
     public async Task GetPaymentsAsync_StrictMode_Bolt11Invoice_DoesNotThrow_UsesEncryptedLookup()
     {
         _clientMock
