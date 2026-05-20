@@ -2,11 +2,11 @@
 
 Package contains functionality to assist .NET projects with making requests to Branta's server.
 
-## Requirements
+# Requirements
 
  * .NET 8.0 or higher
 
-## Installation
+# Installation
 
 Install via NuGet Package Manager:
 
@@ -18,9 +18,16 @@ Or via Package Manager Console:
 Install-Package Branta
 ```
 
-## Quick Start
+# Quick Start
 
-### For Wallets
+## For Wallets
+
+Wallets should use `Strict` privacy mode. Two flows are supported:
+
+- **Copy/paste**: call `GetPaymentsAsync` with the pasted text. Plain-text on-chain addresses will not return results in strict mode — they must be ZK-encoded. Lightning destinations (bolt11, bolt12, ln_url, ln_address) work as plain text.
+- **QR scan**: call `GetPaymentsByQrCodeAsync` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
+
+Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
 
 ```cs
 using Branta.V2.Extensions;
@@ -28,68 +35,86 @@ using Branta.V2.Interfaces;
 
 services.ConfigureBrantaServices(new BrantaClientOptions() {
     BaseUrl = BrantaServerBaseUrl.Production,
-    Privacy = PrivacyMode.Loose
+    Privacy = PrivacyMode.Strict
 });
 ```
 
 ```cs
 public class Example(IBrantaService brantaService)
 {
-    public async Task ExampleMethod(string qrCodeText)
+    public async Task LookupAsync(string input, bool isQrCode)
     {
-        // recommended — handles multiple ZK values
-        var payments = await brantaService.GetPaymentsByQrCodeAsync(qrCodeText);
+        try
+        {
+            var result = isQrCode
+                ? await brantaService.GetPaymentsByQrCodeAsync(input)
+                : await brantaService.GetPaymentsAsync(input);
 
-        // OR
-        var payments = await brantaService.GetPaymentsAsync("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+            if (result.Payments.Count == 0)
+            {
+                // Not found — show nothing. The address may simply not exist in Branta.
+                return;
+            }
+
+            // Render result.Payments and result.VerifyUrl
+        }
+        catch
+        {
+            // Swallow errors — never surface a "not found" or lookup failure to the user.
+        }
     }
 }
 ```
 
-### For Platforms
+## For Platforms
+
+Platforms post payments to Branta so wallets can verify them. Use `Strict` privacy mode and mark each destination ZK via `SetZk()` on the `PaymentBuilder`.
 
 ```cs
 services.ConfigureBrantaServices(new BrantaClientOptions() {
     BaseUrl = BrantaServerBaseUrl.Production,
     DefaultApiKey = "<api-key>",
-    Privacy = PrivacyMode.Loose
+    Privacy = PrivacyMode.Strict
 });
 ```
 
 ```cs
-await _brantaService.AddPaymentAsync(new Payment {
-    Description = "Testing description",
-    Destinations =
-    [
-        new Destination { Value = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", IsZk = false }
-    ],
-    TTL = 600
-});
+var payment = new PaymentBuilder()
+    .SetDescription("Testing description")
+    .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", DestinationType.BitcoinAddress)
+    .SetZk()
+    .SetTtl(600)
+    .Build();
+
+var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment);
+// `secret` is the encryption key needed to look the payment up later.
 ```
 
-### For Parent Platforms
+## For Parent Platforms
+
+Parent Platforms sign requests with HMAC in addition to the API key. Use `Strict` privacy mode and ZK destinations.
 
 ```cs
 services.ConfigureBrantaServices(new BrantaClientOptions() {
     BaseUrl = BrantaServerBaseUrl.Production,
     DefaultApiKey = "<api-key>",
     HmacSecret = "<hmac-secret>",
-    Privacy = PrivacyMode.Loose
+    Privacy = PrivacyMode.Strict
 });
 ```
 
 ```cs
-await _brantaService.AddPaymentAsync(new Payment {
-    Description = "Testing description",
-    Destinations =
-    [
-        new Destination { Value = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", IsZk = false }
-    ],
-    TTL = 600
-});
+var payment = new PaymentBuilder()
+    .SetDescription("Testing description")
+    .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", DestinationType.BitcoinAddress)
+    .SetZk()
+    .SetTtl(600)
+    .Build();
+
+var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment);
 ```
 
-## Privacy
+# Privacy
 
 `PrivacyMode` controls whether plain-text on-chain lookups are allowed.
 
@@ -100,7 +125,7 @@ await _brantaService.AddPaymentAsync(new Payment {
 
 → [`Branta/Enums/PrivacyMode.cs`](Branta/Enums/PrivacyMode.cs)
 
-## IBrantaService
+# IBrantaService
 
 The primary service interface registered by `ConfigureBrantaServices()`.
 
@@ -117,7 +142,7 @@ Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null);
 
 → [`Branta/V2/Interfaces/IBrantaService.cs`](Branta/V2/Interfaces/IBrantaService.cs)
 
-## Release
+# Release
 
  - Open .sln file in Visual Studio
  - Update version in `Branta/Branta.csproj`
@@ -125,3 +150,7 @@ Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null);
  - Run Build
  - Package can be found at `Branta/bin/Release/Branta.X.X.X.nupkg`
  - Upload this file to the new release on nuget.org
+
+# Responsible Disclosure
+
+Found critical bugs/vulnerabilities? Please email them to support@branta.pro. Thanks!
