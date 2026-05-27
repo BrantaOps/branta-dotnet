@@ -54,4 +54,64 @@ public class PaymentBuilderTests
 
         Assert.False(doc.RootElement.TryGetProperty("type", out var typeProp) && typeProp.ValueKind != JsonValueKind.Null);
     }
+
+    [Fact]
+    public void SetZk_MarksLastDestinationAsZkAndAssignsZkId()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", type: DestinationType.BitcoinAddress)
+            .SetZk()
+            .Build();
+
+        Assert.True(payment.Destinations[0].IsZk);
+        Assert.NotNull(payment.Destinations[0].ZkId);
+        Assert.NotEmpty(payment.Destinations[0].ZkId!);
+    }
+
+    [Fact]
+    public void SetZk_OnlyAppliesToLastDestination()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", type: DestinationType.BitcoinAddress)
+            .AddDestination("lnbc100n1ptest", type: DestinationType.Bolt11)
+            .SetZk()
+            .Build();
+
+        Assert.False(payment.Destinations[0].IsZk);
+        Assert.True(payment.Destinations[1].IsZk);
+    }
+
+    [Fact]
+    public void SetDescription_SetsDescription()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
+            .SetDescription("test desc")
+            .Build();
+
+        Assert.Equal("test desc", payment.Description);
+    }
+
+    [Fact]
+    public void SetTtl_SetsTtl()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
+            .SetTtl(3600)
+            .Build();
+
+        Assert.Equal(3600, payment.TTL);
+    }
+
+    [Fact]
+    public void AddMetadata_AddsKeyValuePairToMetadataJson()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
+            .AddMetadata("orderId", "123")
+            .Build();
+
+        Assert.Contains("\"orderId\"", payment.Metadata);
+        Assert.Contains("\"123\"", payment.Metadata);
+    }
 }
