@@ -232,10 +232,8 @@ Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null);
 
 # Release
 
- - Open .sln file in Visual Studio
  - Update version in `Branta/Branta.csproj`
- - Change Configuration from Debug to Release
- - Run Build
+ - Run `dotnet build --configuration Release`
  - Package can be found at `Branta/bin/Release/Branta.X.X.X.nupkg`
  - Upload this file to the new release on nuget.org
 
