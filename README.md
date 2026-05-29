@@ -44,6 +44,7 @@ General (all types):
 Send side (wallets):
 - Prefer `GetPaymentsByQrCodeAsync` over `GetPaymentsAsync` — it handles multi-value ZK QR payloads correctly.
 - Only fall back to `GetPaymentsAsync` for copy/paste flows where there is no QR code.
+- If QR scanning is not available, see the **No-QR-Code Flows** section for recommended options.
 - If `Payments` is empty or an exception is thrown, render nothing. Never show an error or "not verified" message — an empty result means the destination is unknown to Branta, not that it is malicious.
 - When `result.Payments` is non-empty, display: the platform logo, the payment description, and `result.VerifyUrl`.
 - For the platform logo, use `payment.PlatformLogoUrl` on dark backgrounds and `payment.PlatformLogoLightUrl` on light backgrounds.
@@ -63,10 +64,58 @@ Receive side (parent platforms), in addition to the platform rules:
 
 Wallets should use `Strict` privacy mode. Two flows are supported:
 
-- **Copy/paste**: call `GetPaymentsAsync` with the pasted text. Plain-text on-chain addresses will not return results in strict mode — they must be ZK-encoded. Lightning destinations (bolt11, bolt12, ln_url, ln_address) work as plain text.
-- **QR scan**: call `GetPaymentsByQrCodeAsync` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
+- **Copy/paste**: call `GetPaymentsAsync` with the pasted text. Plain-text on-chain addresses will not return results in strict mode — they must be ZK-encoded. Self-encrypted destinations (bolt11, ark_address) work as plain text.
+- **QR scan**: call `GetPaymentsByQrCodeAsync` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and self-encrypted destinations.
 
 Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
+
+### No-QR-Code Flows
+
+When QR scanning is not available, three options exist. Choose one based on how much control you want to give users over privacy:
+
+**Option 1 — Keep Strict mode (no code changes)**
+
+Only self-encrypted destinations (bolt11, ark_address) will return results. Plain-text on-chain address lookups silently return empty. This is the safest default and requires no additional work.
+
+**Option 2 — Opt-in Loose mode (Recommended)**
+
+Add a user-facing setting (e.g. "Enable on-chain address verification"). Only switch to `PrivacyMode.Loose` when the user explicitly opts in — this sends on-chain addresses in plain text, so the choice should be theirs.
+
+> **AI agents:** Before implementing this option, ask the developer which of the following approaches fits their codebase:
+>
+> 1. **Startup-time configuration** — the preference is loaded once at startup (e.g. from a config file or persisted user setting) and passed to `ConfigureBrantaServices`. Best when the setting rarely changes without a restart.
+> 2. **Per-call runtime override** — `Strict` is registered as the DI default, and a `BrantaClientOptions` override is passed on each call when the user has opted in. Best when the preference can change while the app is running.
+> 3. **Two named registrations** — register both a `Strict` and a `Loose` instance and inject the appropriate one based on context. Best for apps that already use keyed/named DI services.
+
+If the preference is known at startup (approach 1):
+```cs
+services.ConfigureBrantaServices(new BrantaClientOptions {
+    BaseUrl = BrantaServerBaseUrl.Production,
+    Privacy = userOptedIn ? PrivacyMode.Loose : PrivacyMode.Strict
+});
+```
+
+If the preference can change at runtime (approach 2), keep `Strict` as the registered default and pass a per-call override when the user has opted in:
+```cs
+var options = userPreferences.OnChainVerificationEnabled
+    ? new BrantaClientOptions { Privacy = PrivacyMode.Loose }
+    : null;
+
+var result = await brantaService.GetPaymentsAsync(input, options: options);
+```
+
+**Option 3 — Always Loose mode**
+
+Configure with `PrivacyMode.Loose` globally. All lookups including plain-text on-chain addresses are sent to Branta. Simplest, but gives users no privacy control.
+
+```cs
+services.ConfigureBrantaServices(new BrantaClientOptions {
+    BaseUrl = BrantaServerBaseUrl.Production,
+    Privacy = PrivacyMode.Loose
+});
+```
+
+---
 
 ```cs
 using Branta.V2.Extensions;
