@@ -40,14 +40,15 @@ If they are on the receive side, ask one follow-up:
 General (all types):
 - Always use `PrivacyMode.Strict`. Never switch to `Loose` unless there is no QR scanner and ZK is impossible.
 - Never call `BrantaClient` directly — always go through `IBrantaService`.
+- For `BaseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
 
 Send side (wallets):
 - Prefer `GetPaymentsByQrCodeAsync` over `GetPaymentsAsync` — it handles multi-value ZK QR payloads correctly.
 - Only fall back to `GetPaymentsAsync` for copy/paste flows where there is no QR code.
 - If QR scanning is not available, see the **No-QR-Code Flows** section for recommended options.
 - If `Payments` is empty or an exception is thrown, render nothing. Never show an error or "not verified" message — an empty result means the destination is unknown to Branta, not that it is malicious.
-- When `result.Payments` is non-empty, display: the platform logo, the payment description, and `result.VerifyUrl`.
-- For the platform logo, use `payment.PlatformLogoUrl` on dark backgrounds and `payment.PlatformLogoLightUrl` on light backgrounds.
+- When `result.Payments` is non-empty, display: the platform logo, the platform name (`payment.Platform`), and the payment description (`payment.Description`). The platform name is always present; the description may be empty — only render it when non-empty. Make the entire verification card a clickable link to `result.VerifyUrl` — do not display the raw URL string.
+- For the platform logo: on dark backgrounds use `payment.PlatformLogoUrl`. On light backgrounds prefer `payment.PlatformLogoLightUrl` when available, falling back to `payment.PlatformLogoUrl` if it is null or empty.
 - Optionally display `payment.ParentPlatform.LogoUrl` / `payment.ParentPlatform.LogoLightUrl` as a small secondary badge (e.g. corner icon). This is not required.
 
 Receive side (platforms):
@@ -79,12 +80,12 @@ Only self-encrypted destinations (bolt11, ark_address) will return results. Plai
 
 **Option 2 — Opt-in Loose mode (Recommended)**
 
-Add a user-facing setting (e.g. "Enable on-chain address verification"). Only switch to `PrivacyMode.Loose` when the user explicitly opts in — this sends on-chain addresses in plain text, so the choice should be theirs.
+Add an opt-in toggle directly on the send/payment screen — e.g. a checkbox or small toggle near the address input labelled "Verify on-chain address". Only switch to `PrivacyMode.Loose` for that individual lookup when the user has checked it. This sends the on-chain address in plain text, so the choice should be theirs at the point of payment. A global app-settings toggle is a less-recommended but viable alternative; it works but requires the user to leave the send flow to enable the feature.
 
 > **AI agents:** Before implementing this option, ask the developer which of the following approaches fits their codebase:
 >
 > 1. **Startup-time configuration** — the preference is loaded once at startup (e.g. from a config file or persisted user setting) and passed to `ConfigureBrantaServices`. Best when the setting rarely changes without a restart.
-> 2. **Per-call runtime override** — `Strict` is registered as the DI default, and a `BrantaClientOptions` override is passed on each call when the user has opted in. Best when the preference can change while the app is running.
+> 2. **Per-call runtime override** *(recommended)* — `Strict` is registered as the DI default, and a `BrantaClientOptions` override is passed on each call when the user has opted in. Maps naturally to a per-payment inline toggle.
 > 3. **Two named registrations** — register both a `Strict` and a `Loose` instance and inject the appropriate one based on context. Best for apps that already use keyed/named DI services.
 
 If the preference is known at startup (approach 1):
