@@ -25,8 +25,8 @@ If you are an AI agent implementing this SDK, follow the steps below exactly. If
 
 
 **1. Ask which side(s) of a payment they are implementing:**
-- **Send side** — the app is paying someone (e.g. a wallet). The user scans or pastes a destination and you verify it belongs to a known platform before funds are sent.
-- **Receive side** — the app is receiving payment (e.g. a checkout, POS, invoicing platform). You post destinations to Branta so wallets can verify them.
+- **Send side** — the flow for outbound payments (e.g. a wallet sending funds).
+- **Receive side** — the flow for receiving payment (e.g. a checkout, POS, invoicing platform). You post destinations (zero-knowledge encrypted) to Branta so wallets can verify them.
 - **Both** — some apps do both (e.g. an exchange or self-custodial wallet with invoice generation). Implement each side independently.
 
 If they are on the receive side, ask one follow-up:
