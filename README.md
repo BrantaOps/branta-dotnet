@@ -18,6 +18,45 @@ Or via Package Manager Console:
 Install-Package Branta
 ```
 
+# Integration Guide
+
+If you are an AI agent implementing this SDK, follow the steps below exactly. If you are a developer, use this as a reference for the recommended integration patterns.
+
+
+
+**1. Ask which side(s) of a payment they are implementing:**
+- **Send side** — the app is paying someone (e.g. a wallet). The user scans or pastes a destination and you verify it belongs to a known platform before funds are sent.
+- **Receive side** — the app is receiving payment (e.g. a checkout, POS, invoicing platform). You post destinations to Branta so wallets can verify them.
+- **Both** — some apps do both (e.g. an exchange or self-custodial wallet with invoice generation). Implement each side independently.
+
+If they are on the receive side, ask one follow-up:
+- **Platform** — single-tenant, one API key.
+- **Parent Platform** — multi-tenant, manages multiple child platforms each with their own API key and HMAC secret.
+
+**2. Follow the matching Quick Start section below.**
+
+**3. Apply these rules:**
+
+General (all types):
+- Always use `PrivacyMode.Strict`. Never switch to `Loose` unless there is no QR scanner and ZK is impossible.
+- Never call `BrantaClient` directly — always go through `IBrantaService`.
+
+Send side (wallets):
+- Prefer `GetPaymentsByQrCodeAsync` over `GetPaymentsAsync` — it handles multi-value ZK QR payloads correctly.
+- Only fall back to `GetPaymentsAsync` for copy/paste flows where there is no QR code.
+- If `Payments` is empty or an exception is thrown, render nothing. Never show an error or "not verified" message — an empty result means the destination is unknown to Branta, not that it is malicious.
+- When `result.Payments` is non-empty, display: the platform logo, the payment description, and `result.VerifyUrl`.
+- For the platform logo, use `payment.PlatformLogoUrl` on dark backgrounds and `payment.PlatformLogoLightUrl` on light backgrounds.
+- Optionally display `payment.ParentPlatform.LogoUrl` / `payment.ParentPlatform.LogoLightUrl` as a small secondary badge (e.g. corner icon). This is not required.
+
+Receive side (platforms):
+- Always call `.SetZk()` on the `PaymentBuilder` before calling `AddPaymentAsync`. Plain-text destinations are rejected in `Strict` mode.
+- Store the `secret` returned by `AddPaymentAsync` alongside the invoice — it is required to reconstruct the verify URL for the wallet.
+
+Receive side (parent platforms), in addition to the platform rules:
+- Include `HmacSecret` in `BrantaClientOptions`.
+- Pass per-call `BrantaClientOptions` to scope requests to the correct child platform's API key.
+
 # Quick Start
 
 ## For Wallets
