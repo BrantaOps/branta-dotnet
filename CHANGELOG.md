@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[3.1.3](https://github.com/BrantaOps/branta-dotnet/compare/3.1.2...3.1.3)] - 2026-05-29
+
+### Added
+- Integration guide for developers and AI assistants ([#60](https://github.com/BrantaOps/branta-dotnet/pull/60))
+
+## [[3.1.2](https://github.com/BrantaOps/branta-dotnet/compare/3.1.1...3.1.2)] - 2026-05-29
+
+### Added
+- Parent platform model included in payment response ([#58](https://github.com/BrantaOps/branta-dotnet/pull/58))
+- Integration tests and expanded test coverage ([#59](https://github.com/BrantaOps/branta-dotnet/pull/59))
+
 ## [[3.1.1](https://github.com/BrantaOps/branta-dotnet/compare/3.1.0...3.1.1)] - 2026-05-19
 
 ### Fixed
