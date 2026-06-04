@@ -79,6 +79,33 @@ public class BrantaExtensionsTest
         Assert.False("bc1qabc".IsArk());
     }
 
+    // IsSilentPayment
+
+    [Fact]
+    public void IsSilentPayment_ReturnsTrue_ForSp1Prefix()
+    {
+        Assert.True("sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw".IsSilentPayment());
+    }
+
+    [Fact]
+    public void IsSilentPayment_ReturnsTrue_ForTsp1Prefix()
+    {
+        Assert.True("tsp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw".IsSilentPayment());
+    }
+
+    [Fact]
+    public void IsSilentPayment_IsCaseInsensitive()
+    {
+        Assert.True("SP1QQWL5P9JHZ".IsSilentPayment());
+    }
+
+    [Fact]
+    public void IsSilentPayment_ReturnsFalse_ForNonSpValues()
+    {
+        Assert.False("bc1qabc".IsSilentPayment());
+        Assert.False("ark1qqjqtest".IsSilentPayment());
+    }
+
     // GetHashZkType
 
     [Fact]
@@ -91,6 +118,12 @@ public class BrantaExtensionsTest
     public void GetHashZkType_ReturnsArkAddress_ForArkAddress()
     {
         Assert.Equal(DestinationType.ArkAddress, "ark1qqjqtest".GetHashZkType());
+    }
+
+    [Fact]
+    public void GetHashZkType_ReturnsSilentPayment_ForSilentPaymentAddress()
+    {
+        Assert.Equal(DestinationType.SilentPayment, "sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw".GetHashZkType());
     }
 
     [Fact]
