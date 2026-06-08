@@ -42,5 +42,7 @@ public enum DestinationType
     [JsonPropertyName("ln_address")]
     LnAddress,
     [JsonPropertyName("ark_address")]
-    ArkAddress
+    ArkAddress,
+    [JsonPropertyName("silent_payment")]
+    SilentPayment
 }

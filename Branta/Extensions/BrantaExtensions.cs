@@ -44,10 +44,15 @@ public static class BrantaExtensions
 
     public static bool IsArk(this string value) => value.StartsWith("ark1", StringComparison.OrdinalIgnoreCase);
 
+    public static bool IsSilentPayment(this string value) =>
+        value.StartsWith("sp1", StringComparison.OrdinalIgnoreCase) ||
+        value.StartsWith("tsp1", StringComparison.OrdinalIgnoreCase);
+
     public static DestinationType? GetHashZkType(this string value)
     {
         if (value.IsBolt11()) return DestinationType.Bolt11;
         if (value.IsArk()) return DestinationType.ArkAddress;
+        if (value.IsSilentPayment()) return DestinationType.SilentPayment;
         return null;
     }
 

@@ -130,6 +130,24 @@ public class QRParserTests
     }
 
     [Fact]
+    public void QRParser_SilentPaymentAddress_SetsSilentPaymentType()
+    {
+        var result = new QRParser("sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw");
+
+        Assert.Equal("sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw", result.Destination);
+        Assert.Equal(DestinationType.SilentPayment, result.DestinationType);
+    }
+
+    [Fact]
+    public void QRParser_TestnetSilentPaymentAddress_SetsSilentPaymentType()
+    {
+        var result = new QRParser("tsp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw");
+
+        Assert.Equal("tsp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw", result.Destination);
+        Assert.Equal(DestinationType.SilentPayment, result.DestinationType);
+    }
+
+    [Fact]
     public void QRParser_UnrecognizedText_SetsNullType()
     {
         var result = new QRParser("not-any-known-format");
@@ -173,5 +191,17 @@ public class QRParserTests
         Assert.Equal("ark100testaddress", result.Destinations[2].Value);
         Assert.Equal(DestinationType.ArkAddress, result.Destinations[2].Type);
         Assert.False(result.IsOnChainZk());
+    }
+
+    [Fact]
+    public void QRParser_BitcoinUriWithSilentPaymentParam_AddsSilentPaymentDestination()
+    {
+        var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?silent_payment=sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw");
+
+        Assert.Equal(2, result.Destinations.Count);
+        Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result.Destination);
+        Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
+        Assert.Equal("sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw", result.Destinations[1].Value);
+        Assert.Equal(DestinationType.SilentPayment, result.Destinations[1].Type);
     }
 }
