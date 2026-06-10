@@ -875,4 +875,275 @@ public class BrantaServiceTests
     }
 
     #endregion
+
+    #region Key envelope — AddPaymentAsync
+
+    private const string PlainMetadata = "{\"email\":\"test@example.com\"}";
+    private const string EncryptedMetadata = "encrypted-metadata-ciphertext";
+    private const string Dek = "test-dek";
+    private const string EncryptedDekForBitcoin = "encrypted-dek-for-bitcoin";
+    private const string EncryptedDekForBolt11 = "encrypted-dek-for-bolt11";
+
+    private BrantaService BuildServiceWithDekMock(out Mock<IAesEncryption> aesMock, out Mock<ISecretGenerator> genMock)
+    {
+        aesMock = new Mock<IAesEncryption>();
+        genMock = new Mock<ISecretGenerator>();
+        genMock.SetupSequence(g => g.Generate())
+            .Returns(Dek)
+            .Returns(Secret);
+        genMock.Setup(g => g.DeterministicNonce).Returns(false);
+
+        aesMock.Setup(e => e.Encrypt(PlainMetadata, Dek, false)).Returns(EncryptedMetadata);
+        aesMock.Setup(e => e.Encrypt(Dek, Secret, false)).Returns(EncryptedDekForBitcoin);
+        aesMock.Setup(e => e.Encrypt(BitcoinAddress, Secret, false)).Returns(EncryptedBitcoinAddress);
+        aesMock.Setup(e => e.Encrypt(Dek, Bolt11Hash, false)).Returns(EncryptedDekForBolt11);
+        aesMock.Setup(e => e.Encrypt(Bolt11Invoice, Bolt11Hash, true)).Returns(EncryptedBolt11);
+
+        return new BrantaService(_clientMock.Object, aesMock.Object, Options.Create(_defaultOptions), genMock.Object);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_ZkDestinationWithMetadata_EncryptsDekAndMetadata()
+    {
+        var service = BuildServiceWithDekMock(out var aesMock, out _);
+
+        var payment = new PaymentBuilder()
+            .AddDestination(BitcoinAddress, type: DestinationType.BitcoinAddress)
+            .SetZk()
+            .Build();
+        payment.Metadata = PlainMetadata;
+        var zkId = payment.Destinations[0].ZkId!;
+
+        var responsePayment = new PaymentBuilder()
+            .AddDestination(EncryptedBitcoinAddress, type: DestinationType.BitcoinAddress)
+            .Build();
+        responsePayment.Destinations[0].IsZk = true;
+        responsePayment.Destinations[0].ZkId = zkId;
+
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(responsePayment);
+
+        await service.AddPaymentAsync(payment);
+
+        aesMock.Verify(e => e.Encrypt(PlainMetadata, Dek, false), Times.Once);
+        Assert.Equal(EncryptedMetadata, payment.Metadata);
+        Assert.Equal(EncryptedDekForBitcoin, payment.Destinations[0].EncryptedDek);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_ZkBolt11WithMetadata_SetsEncryptedDekWithHashKey()
+    {
+        var service = BuildServiceWithDekMock(out var aesMock, out _);
+
+        var payment = new PaymentBuilder()
+            .AddDestination(Bolt11Invoice, type: DestinationType.Bolt11)
+            .SetZk()
+            .Build();
+        payment.Metadata = PlainMetadata;
+        var zkId = payment.Destinations[0].ZkId!;
+
+        var responsePayment = new PaymentBuilder()
+            .AddDestination(EncryptedBolt11, type: DestinationType.Bolt11)
+            .Build();
+        responsePayment.Destinations[0].IsZk = true;
+        responsePayment.Destinations[0].ZkId = zkId;
+
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(responsePayment);
+
+        await service.AddPaymentAsync(payment);
+
+        aesMock.Verify(e => e.Encrypt(PlainMetadata, Dek, false), Times.Once);
+        Assert.Equal(EncryptedMetadata, payment.Metadata);
+        Assert.Equal(EncryptedDekForBolt11, payment.Destinations[0].EncryptedDek);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_NonZkDestinationWithMetadata_DoesNotSetEncryptedDek()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination(BitcoinAddress, type: DestinationType.BitcoinAddress)
+            .Build();
+        payment.Metadata = PlainMetadata;
+
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(PlainBitcoinPayment);
+
+        await _service.AddPaymentAsync(payment);
+
+        Assert.Equal(PlainMetadata, payment.Metadata);
+        Assert.Null(payment.Destinations[0].EncryptedDek);
+        _aesEncryptionMock.Verify(e => e.Encrypt(PlainMetadata, It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_NoMetadata_DoesNotSetEncryptedDek()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination(BitcoinAddress, type: DestinationType.BitcoinAddress)
+            .SetZk()
+            .Build();
+        var zkId = payment.Destinations[0].ZkId!;
+
+        var responsePayment = new PaymentBuilder()
+            .AddDestination(EncryptedBitcoinAddress, type: DestinationType.BitcoinAddress)
+            .Build();
+        responsePayment.Destinations[0].IsZk = true;
+        responsePayment.Destinations[0].ZkId = zkId;
+
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(responsePayment);
+
+        await _service.AddPaymentAsync(payment);
+
+        Assert.Null(payment.Destinations[0].EncryptedDek);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_MixedZkAndNonZkWithMetadata_OnlyZkDestinationGetsEncryptedDek()
+    {
+        var aesMock = new Mock<IAesEncryption>();
+        var genMock = new Mock<ISecretGenerator>();
+        genMock.SetupSequence(g => g.Generate())
+            .Returns(Dek)
+            .Returns(Secret);
+        genMock.Setup(g => g.DeterministicNonce).Returns(false);
+        aesMock.Setup(e => e.Encrypt(PlainMetadata, Dek, false)).Returns(EncryptedMetadata);
+        aesMock.Setup(e => e.Encrypt(Dek, Bolt11Hash, false)).Returns(EncryptedDekForBolt11);
+        aesMock.Setup(e => e.Encrypt(Bolt11Invoice, Bolt11Hash, true)).Returns(EncryptedBolt11);
+        var service = new BrantaService(_clientMock.Object, aesMock.Object, Options.Create(_defaultOptions), genMock.Object);
+
+        var payment = new Payment
+        {
+            Destinations =
+            [
+                new Destination { Value = Bolt11Invoice, Type = DestinationType.Bolt11, IsZk = true, ZkId = Guid.NewGuid().ToString() },
+                new Destination { Value = "ln_address@example.com", Type = DestinationType.LnAddress, IsZk = false }
+            ],
+            Metadata = PlainMetadata
+        };
+
+        var responsePayment = new Payment
+        {
+            Destinations =
+            [
+                new Destination { Value = EncryptedBolt11, Type = DestinationType.Bolt11, IsZk = true, ZkId = payment.Destinations[0].ZkId },
+                new Destination { Value = "ln_address@example.com", Type = DestinationType.LnAddress, IsZk = false }
+            ]
+        };
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(responsePayment);
+
+        await service.AddPaymentAsync(payment);
+
+        Assert.Equal(EncryptedDekForBolt11, payment.Destinations[0].EncryptedDek);
+        Assert.Null(payment.Destinations[1].EncryptedDek);
+    }
+
+    #endregion
+
+    #region Key envelope — GetPaymentsAsync decryption
+
+    private const string EncryptedDekValue = "encrypted-dek-blob";
+    private const string DecryptedDek = "decrypted-dek-value";
+    private const string DecryptedMetadata = "{\"email\":\"alice@example.com\"}";
+    private const string EncryptedMetadataBlob = "encrypted-metadata-blob";
+
+    [Fact]
+    public async Task GetPaymentsAsync_ZkBolt11WithEncryptedDek_DecryptsMetadata()
+    {
+        var payment = new Payment
+        {
+            Destinations = [new Destination { Value = EncryptedBolt11, Type = DestinationType.Bolt11, IsZk = true, ZkId = "zk1", EncryptedDek = EncryptedDekValue }],
+            Metadata = EncryptedMetadataBlob
+        };
+
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedDekValue, Bolt11Hash)).Returns(DecryptedDek);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedMetadataBlob, DecryptedDek)).Returns(DecryptedMetadata);
+
+        var result = await _service.GetPaymentsAsync(Bolt11Invoice);
+
+        Assert.Equal(DecryptedMetadata, result.Payments[0].Metadata);
+        Assert.True(result.Payments[0].IsMetadataDecrypted);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_ZkDestinationWithoutEncryptedDek_LeavesMetadataAsIs()
+    {
+        var payment = new Payment
+        {
+            Destinations = [new Destination { Value = EncryptedBolt11, Type = DestinationType.Bolt11, IsZk = true, ZkId = "zk1", EncryptedDek = null }],
+            Metadata = EncryptedMetadataBlob
+        };
+
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        var result = await _service.GetPaymentsAsync(Bolt11Invoice);
+
+        Assert.Equal(EncryptedMetadataBlob, result.Payments[0].Metadata);
+        Assert.False(result.Payments[0].IsMetadataDecrypted);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_MultipleZkDestinations_MetadataDecryptedOnlyOnce()
+    {
+        var bolt11Hash = Bolt11Invoice.ToNormalizedHash();
+        var arkHash = ArkAddress.ToNormalizedHash();
+
+        var payment = new Payment
+        {
+            Destinations =
+            [
+                new Destination { Value = EncryptedBolt11, Type = DestinationType.Bolt11, IsZk = true, ZkId = "zk1", EncryptedDek = EncryptedDekValue },
+                new Destination { Value = EncryptedArkAddress, Type = DestinationType.ArkAddress, IsZk = true, ZkId = "zk2", EncryptedDek = "another-dek" }
+            ],
+            Metadata = EncryptedMetadataBlob
+        };
+
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedDekValue, bolt11Hash)).Returns(DecryptedDek);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedMetadataBlob, DecryptedDek)).Returns(DecryptedMetadata);
+
+        var result = await _service.GetPaymentsAsync(Bolt11Invoice);
+
+        _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedMetadataBlob, DecryptedDek), Times.Once);
+        Assert.Equal(DecryptedMetadata, result.Payments[0].Metadata);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_EncryptedDekDecryptionFails_LeavesMetadataAsIs()
+    {
+        var payment = new Payment
+        {
+            Destinations = [new Destination { Value = EncryptedBolt11, Type = DestinationType.Bolt11, IsZk = true, ZkId = "zk1", EncryptedDek = EncryptedDekValue }],
+            Metadata = EncryptedMetadataBlob
+        };
+
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedDekValue, Bolt11Hash)).Throws<Exception>();
+
+        var result = await _service.GetPaymentsAsync(Bolt11Invoice);
+
+        Assert.Equal(EncryptedMetadataBlob, result.Payments[0].Metadata);
+        Assert.False(result.Payments[0].IsMetadataDecrypted);
+    }
+
+    #endregion
 }

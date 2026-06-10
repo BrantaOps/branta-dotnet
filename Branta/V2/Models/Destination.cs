@@ -19,4 +19,7 @@ public class Destination
     public DestinationType? Type { get; set; }
 
     public string? ZkId { get; set; }
+
+    [JsonPropertyName("encrypted_dek")]
+    public string? EncryptedDek { get; set; }
 }
