@@ -41,21 +41,21 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         var keys = new Dictionary<string, string>();
         foreach (var payment in payments)
         {
-            DecryptDestinations(payment.Destinations, lookupValue, encryptionKey, null, keys);
+            DecryptDestinations(payment, lookupValue, encryptionKey, null, keys);
             foreach (var value in additionalHashValues)
-                DecryptHashZkDestinations(payment.Destinations, value, keys);
+                DecryptHashZkDestinations(payment, value, keys);
         }
 
         return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
-    private void DecryptHashZkDestinations(List<Destination> destinations, string plainValue, Dictionary<string, string> keys)
+    private void DecryptHashZkDestinations(Payment payment, string plainValue, Dictionary<string, string> keys)
     {
         var hashZkType = plainValue.GetHashZkType();
         if (!hashZkType.HasValue) return;
 
         var key = plainValue.ToNormalizedHash();
-        foreach (var destination in destinations)
+        foreach (var destination in payment.Destinations)
         {
             if (!destination.IsZk || destination.Type != hashZkType.Value) continue;
             try
@@ -63,6 +63,7 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 destination.Value = aesEncryption.Decrypt(destination.Value, key);
                 destination.IsEncrypted = false;
                 keys.TryAdd(destination.ZkId!, key);
+                TryDecryptMetadata(payment, destination, key);
             }
             catch
             {
@@ -94,15 +95,15 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         var keys = new Dictionary<string, string>();
         foreach (var payment in payments)
         {
-            DecryptDestinations(payment.Destinations, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
+            DecryptDestinations(payment, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
         }
 
         return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
-    private void DecryptDestinations(List<Destination> destinations, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys)
+    private void DecryptDestinations(Payment payment, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys)
     {
-        foreach (var destination in destinations)
+        foreach (var destination in payment.Destinations)
         {
             destination.IsEncrypted = destination.IsZk;
             if (!destination.IsZk) continue;
@@ -115,6 +116,7 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                     destination.Value = aesEncryption.Decrypt(destination.Value, encryptionKey);
                     destination.IsEncrypted = false;
                     keys.TryAdd(destination.ZkId!, encryptionKey);
+                    TryDecryptMetadata(payment, destination, encryptionKey);
                 }
                 catch
                 {
@@ -129,6 +131,7 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                     destination.Value = aesEncryption.Decrypt(destination.Value, key);
                     destination.IsEncrypted = false;
                     keys.TryAdd(destination.ZkId!, key);
+                    TryDecryptMetadata(payment, destination, key);
                 }
                 catch
                 {
@@ -138,10 +141,32 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         }
     }
 
+    private void TryDecryptMetadata(Payment payment, Destination destination, string keyUsed)
+    {
+        if (destination.EncryptedDek == null || payment.Metadata == null || payment.IsMetadataDecrypted) return;
+        try
+        {
+            var dek = aesEncryption.Decrypt(destination.EncryptedDek, keyUsed);
+            payment.Metadata = aesEncryption.Decrypt(payment.Metadata, dek);
+            payment.IsMetadataDecrypted = true;
+        }
+        catch
+        {
+            // DEK decryption failed — leave metadata as-is.
+        }
+    }
+
     public async Task<(Payment Payment, string Secret, string VerifyUrl)> AddPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken ct = default)
     {
         if (_defaultOptions.GetPrivacy(options) == PrivacyMode.Strict && payment.Destinations.Any(d => !d.IsZk))
             throw new BrantaPaymentException("PrivacyMode.Strict requires all destinations to be ZK; one or more destinations have IsZk = false.");
+
+        string? dek = null;
+        if (payment.Metadata != null && payment.Destinations.Any(d => d.IsZk))
+        {
+            dek = _secretGenerator.Generate();
+            payment.Metadata = aesEncryption.Encrypt(payment.Metadata, dek);
+        }
 
         var secret = _secretGenerator.Generate();
         var encryptedToKey = new Dictionary<string, string>();
@@ -154,6 +179,8 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
             {
                 destination.Value = aesEncryption.Encrypt(destination.Value, secret, _secretGenerator.DeterministicNonce);
                 encryptedToKey[destination.Value] = secret;
+                if (dek != null)
+                    destination.EncryptedDek = aesEncryption.Encrypt(dek, secret);
             }
             else
             {
@@ -165,6 +192,8 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 var key = normalizedValue.ToNormalizedHash();
                 destination.Value = aesEncryption.Encrypt(normalizedValue, key, deterministicNonce: true);
                 encryptedToKey[destination.Value] = key;
+                if (dek != null)
+                    destination.EncryptedDek = aesEncryption.Encrypt(dek, key);
             }
         }
 
