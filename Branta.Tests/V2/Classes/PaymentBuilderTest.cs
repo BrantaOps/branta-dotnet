@@ -114,4 +114,48 @@ public class PaymentBuilderTests
         Assert.Contains("\"orderId\"", payment.Metadata);
         Assert.Contains("\"123\"", payment.Metadata);
     }
+
+    [Fact]
+    public void SetChildPlatform_SetsName()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetChildPlatform("Acme")
+            .Build();
+
+        Assert.Equal("Acme", payment.ChildPlatform!.Name);
+    }
+
+    [Fact]
+    public void SetChildPlatform_OptionalUrlsDefaultNull()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetChildPlatform("Acme")
+            .Build();
+
+        Assert.Null(payment.ChildPlatform!.LogoUrl);
+        Assert.Null(payment.ChildPlatform.LogoLightUrl);
+    }
+
+    [Fact]
+    public void SetChildPlatform_WithUrls_SetsUrls()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetChildPlatform("Acme", logoUrl: "https://example.com/logo.png", logoLightUrl: "https://example.com/logo-light.png")
+            .Build();
+
+        Assert.Equal("https://example.com/logo.png", payment.ChildPlatform!.LogoUrl);
+        Assert.Equal("https://example.com/logo-light.png", payment.ChildPlatform.LogoLightUrl);
+    }
+
+    [Fact]
+    public void SetChildPlatform_ReturnsBuilder()
+    {
+        var builder = new PaymentBuilder().AddDestination("bc1qtest");
+        var result = builder.SetChildPlatform("Acme");
+
+        Assert.Same(builder, result);
+    }
 }

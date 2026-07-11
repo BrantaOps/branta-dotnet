@@ -31,7 +31,9 @@ If you are an AI agent implementing this SDK, follow the steps below exactly. If
 
 If they are on the receive side, ask one follow-up:
 - **Platform** — single-tenant, one API key.
-- **Parent Platform** — multi-tenant, manages multiple child platforms each with their own API key and HMAC secret.
+- **Parent Platform** — multi-tenant, manages multiple child platforms. Two variants:
+  - **Per-client keys** — each child has its own API key and HMAC secret; you scope requests per-call.
+  - **Shared key** — one API key and HMAC secret for all children; tag the child per-payment with `SetChildPlatform()`.
 
 **2. Follow the matching Quick Start section below.**
 
@@ -54,9 +56,13 @@ Receive side (platforms):
 - Always call `.SetZk()` on the `PaymentBuilder` before calling `AddPaymentAsync`. Plain-text destinations are rejected in `Strict` mode.
 - Store the `secret` returned by `AddPaymentAsync` alongside the invoice — it is required to reconstruct the verify URL for the wallet.
 
-Receive side (parent platforms), in addition to the platform rules:
-- Include `HmacSecret` in `BrantaClientOptions`.
-- Pass per-call `BrantaClientOptions` to scope requests to the correct child platform's API key.
+Receive side (parent platforms — per-client keys), in addition to the platform rules:
+- Include `HmacSecret` in `BrantaClientOptions` but omit `DefaultApiKey` at service registration.
+- Pass per-call `BrantaClientOptions` with each child's API key to scope requests.
+
+Receive side (parent platforms — shared key), in addition to the platform rules:
+- Include both `DefaultApiKey` and `HmacSecret` in `BrantaClientOptions`.
+- Call `.SetChildPlatform(name, logoUrl, logoLightUrl)` on the builder to tag each payment with the child's branding.
 
 # Quick Start
 
@@ -180,12 +186,44 @@ var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment
 
 ## For Parent Platforms
 
-Parent Platforms sign requests with HMAC in addition to the API key. Use `Strict` privacy mode and ZK destinations.
+Parent platforms sign requests with HMAC. Choose a variant based on how API keys are structured.
+
+<details>
+<summary>Shared key — one API key covers all children (Recommended)</summary>
+
+Register with a single API key and HMAC secret; identify the child platform per-payment.
 
 ```cs
 services.ConfigureBrantaServices(new BrantaClientOptions() {
     BaseUrl = BrantaServerBaseUrl.Production,
-    DefaultApiKey = "<api-key>",
+    DefaultApiKey = "<shared-api-key>",
+    HmacSecret = "<hmac-secret>",
+    Privacy = PrivacyMode.Strict
+});
+```
+
+```cs
+var payment = new PaymentBuilder()
+    .SetDescription("Testing description")
+    .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", DestinationType.BitcoinAddress)
+    .SetZk()
+    .SetChildPlatform("ChildBrand", logoUrl: "https://example.com/logo.png")
+    .SetTtl(600)
+    .Build();
+
+var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment);
+```
+
+</details>
+
+<details>
+<summary>Per-client keys — each child has its own API key</summary>
+
+Register the service with the shared HMAC secret only; pass each child's API key per-call.
+
+```cs
+services.ConfigureBrantaServices(new BrantaClientOptions() {
+    BaseUrl = BrantaServerBaseUrl.Production,
     HmacSecret = "<hmac-secret>",
     Privacy = PrivacyMode.Strict
 });
@@ -199,8 +237,12 @@ var payment = new PaymentBuilder()
     .SetTtl(600)
     .Build();
 
-var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment);
+// Scope to the child platform's API key per-call
+var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment,
+    new BrantaClientOptions { DefaultApiKey = "<child-api-key>" });
 ```
+
+</details>
 
 # Privacy
 
