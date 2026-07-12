@@ -69,6 +69,13 @@ public class PaymentBuilder
         return this;
     }
 
+    public PaymentBuilder SetChildPlatform(string name, string? logoUrl = null, string? logoLightUrl = null)
+    {
+        payment.ChildPlatform = new Platform { Name = name, LogoUrl = logoUrl, LogoLightUrl = logoLightUrl };
+
+        return this;
+    }
+
     public Payment Build()
     {
         return payment;

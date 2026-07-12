@@ -23,6 +23,8 @@ public class Payment
 
     public Platform? ParentPlatform { get; set; }
 
+    public Platform? ChildPlatform { get; set; }
+
     public string? BtcPayServerPluginVersion { get; set; }
 
     [JsonIgnore]
