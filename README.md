@@ -32,8 +32,8 @@ If you are an AI agent implementing this SDK, follow the steps below exactly. If
 If they are on the receive side, ask one follow-up:
 - **Platform** — single-tenant, one API key.
 - **Parent Platform** — multi-tenant, manages multiple child platforms. Two variants:
-  - **Per-client keys** — each child has its own API key and HMAC secret; you scope requests per-call.
-  - **Shared key** — one API key and HMAC secret for all children; tag the child per-payment with `SetChildPlatform()`.
+  - **Per-client keys** — each child has its own API key; requests are signed with the parent HMAC secret; you scope requests per-call.
+  - **Shared key** — one API key for all children (no HMAC); tag the child per-payment with `SetChildPlatform()`.
 
 **2. Follow the matching Quick Start section below.**
 
@@ -61,7 +61,7 @@ Receive side (parent platforms — per-client keys), in addition to the platform
 - Pass per-call `BrantaClientOptions` with each child's API key to scope requests.
 
 Receive side (parent platforms — shared key), in addition to the platform rules:
-- Include both `DefaultApiKey` and `HmacSecret` in `BrantaClientOptions`.
+- Include `DefaultApiKey` in `BrantaClientOptions`. Do not include `HmacSecret`.
 - Call `.SetChildPlatform(name, logoUrl, logoLightUrl)` on the builder to tag each payment with the child's branding.
 
 # Quick Start
@@ -186,18 +186,17 @@ var (response, secret, verifyUrl) = await _brantaService.AddPaymentAsync(payment
 
 ## For Parent Platforms
 
-Parent platforms sign requests with HMAC. Choose a variant based on how API keys are structured.
+Choose a variant based on how API keys are structured. Shared key needs only an API key; per-client keys also require HMAC.
 
 <details>
 <summary>Shared key — one API key covers all children (Recommended)</summary>
 
-Register with a single API key and HMAC secret; identify the child platform per-payment.
+Register with a single API key; identify the child platform per-payment. No HMAC secret.
 
 ```cs
 services.ConfigureBrantaServices(new BrantaClientOptions() {
     BaseUrl = BrantaServerBaseUrl.Production,
     DefaultApiKey = "<shared-api-key>",
-    HmacSecret = "<hmac-secret>",
     Privacy = PrivacyMode.Strict
 });
 ```
