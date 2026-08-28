@@ -42,13 +42,14 @@ If they are on the receive side, ask one follow-up:
 General (all types):
 - Always use `PrivacyMode.Strict`. Never switch to `Loose` unless there is no QR scanner and ZK is impossible.
 - Never call `BrantaClient` directly — always go through `IBrantaService`.
+- For `BaseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
 
 Send side (wallets):
 - Prefer `GetPaymentsByQrCodeAsync` over `GetPaymentsAsync` — it handles multi-value ZK QR payloads correctly.
 - Only fall back to `GetPaymentsAsync` for copy/paste flows where there is no QR code.
 - If QR scanning is not available, see the **No-QR-Code Flows** section for recommended options.
 - If `Payments` is empty or an exception is thrown, render nothing. Never show an error or "not verified" message — an empty result means the destination is unknown to Branta, not that it is malicious.
-- When `result.Payments` is non-empty, display: the platform logo, the payment description, and `result.VerifyUrl`.
+- When `result.Payments` is non-empty, display: the platform logo, the platform name (`payment.Platform`), and the payment description (`payment.Description`). Only render description when non-empty. Make the verification card a clickable link to `result.VerifyUrl` — do not display the raw URL.
 - For the platform logo, use `payment.PlatformLogoUrl` on dark backgrounds and `payment.PlatformLogoLightUrl` on light backgrounds.
 - Optionally display `payment.ParentPlatform.LogoUrl` / `payment.ParentPlatform.LogoLightUrl` as a small secondary badge (e.g. corner icon). This is not required.
 
