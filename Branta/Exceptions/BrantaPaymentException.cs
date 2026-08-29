@@ -1,5 +1,11 @@
-﻿namespace Branta.Exceptions;
+namespace Branta.Exceptions;
 
-public class BrantaPaymentException(string message) : Exception(message)
+public enum BrantaPaymentExceptionReason
 {
+    Tampered
+}
+
+public class BrantaPaymentException(string message, BrantaPaymentExceptionReason? reason = null) : Exception(message)
+{
+    public BrantaPaymentExceptionReason? Reason { get; } = reason;
 }

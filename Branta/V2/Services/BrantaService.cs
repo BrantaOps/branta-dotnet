@@ -14,6 +14,13 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
     private readonly BrantaClientOptions _defaultOptions = defaultOptions.Value;
     private readonly ISecretGenerator _secretGenerator = secretGenerator ?? new GuidSecretGenerator();
 
+    private static bool AddressesMatch(string a, string b)
+    {
+        bool IsBech32(string v) => v.StartsWith("bc1", StringComparison.OrdinalIgnoreCase);
+        if (IsBech32(a) && IsBech32(b)) return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        return a == b;
+    }
+
     public Task<PaymentsResult> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken ct = default)
     {
         var parser = new QRParser(qrText);
@@ -24,7 +31,8 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 .Where(d => d.Value.GetHashZkType().HasValue)
                 .Select(d => d.Value)
                 .ToList();
-            return GetPaymentsForZkAsync(parser.OnChainEncryptionText!, parser.OnChainEncryptionSecret, additionalValues, options, ct);
+            var onChainAddress = parser.Destinations.FirstOrDefault(d => d.Type == DestinationType.BitcoinAddress)?.Value;
+            return GetPaymentsForZkAsync(parser.OnChainEncryptionText!, parser.OnChainEncryptionSecret, additionalValues, onChainAddress, options, ct);
         }
 
         var destination = parser.Destination!;
@@ -34,14 +42,14 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         return GetPaymentsAsync(destination, null, options, ct);
     }
 
-    private async Task<PaymentsResult> GetPaymentsForZkAsync(string lookupValue, string? encryptionKey, IReadOnlyList<string> additionalHashValues, BrantaClientOptions? options, CancellationToken ct)
+    private async Task<PaymentsResult> GetPaymentsForZkAsync(string lookupValue, string? encryptionKey, IReadOnlyList<string> additionalHashValues, string? expectedOnChainAddress, BrantaClientOptions? options, CancellationToken ct)
     {
         var payments = await client.GetPaymentsAsync(lookupValue, options, ct);
 
         var keys = new Dictionary<string, string>();
         foreach (var payment in payments)
         {
-            DecryptDestinations(payment, lookupValue, encryptionKey, null, keys);
+            DecryptDestinations(payment, lookupValue, encryptionKey, null, keys, expectedOnChainAddress);
             foreach (var value in additionalHashValues)
                 DecryptHashZkDestinations(payment, value, keys);
         }
@@ -101,7 +109,7 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
-    private void DecryptDestinations(Payment payment, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys)
+    private void DecryptDestinations(Payment payment, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys, string? expectedOnChainAddress = null)
     {
         foreach (var destination in payment.Destinations)
         {
@@ -111,17 +119,28 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
             if (destination.Type == DestinationType.BitcoinAddress)
             {
                 if (encryptionKey == null) continue;
+                string decrypted;
                 try
                 {
-                    destination.Value = aesEncryption.Decrypt(destination.Value, encryptionKey);
-                    destination.IsEncrypted = false;
-                    keys.TryAdd(destination.ZkId!, encryptionKey);
-                    TryDecryptMetadata(payment, destination, encryptionKey);
+                    decrypted = aesEncryption.Decrypt(destination.Value, encryptionKey);
                 }
                 catch
                 {
                     // Key didn't match this destination — leave it encrypted.
+                    continue;
                 }
+
+                if (expectedOnChainAddress != null && !AddressesMatch(decrypted, expectedOnChainAddress))
+                {
+                    throw new BrantaPaymentException(
+                        "The Bitcoin address in the QR code does not match the address verified by Branta. The QR code may have been tampered with.",
+                        BrantaPaymentExceptionReason.Tampered);
+                }
+
+                destination.Value = decrypted;
+                destination.IsEncrypted = false;
+                keys.TryAdd(destination.ZkId!, encryptionKey);
+                TryDecryptMetadata(payment, destination, encryptionKey);
             }
             else if (hashZkType.HasValue && destination.Type == hashZkType.Value)
             {
