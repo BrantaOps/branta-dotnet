@@ -114,15 +114,23 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
 
         foreach (var payment in payments)
         {
-            var logoUrl = payment.PlatformLogoUrl;
+            CheckLogoUrl(payment.PlatformLogoUrl, "platformLogoUrl", baseOrigin);
+            CheckLogoUrl(payment.PlatformLogoLightUrl, "platformLogoLightUrl", baseOrigin);
+            CheckLogoUrl(payment.ParentPlatform?.LogoUrl, "parentPlatform.logoUrl", baseOrigin);
+            CheckLogoUrl(payment.ParentPlatform?.LogoLightUrl, "parentPlatform.logoLightUrl", baseOrigin);
+            CheckLogoUrl(payment.ChildPlatform?.LogoUrl, "childPlatform.logoUrl", baseOrigin);
+            CheckLogoUrl(payment.ChildPlatform?.LogoLightUrl, "childPlatform.logoLightUrl", baseOrigin);
+        }
+    }
 
-            if (string.IsNullOrEmpty(logoUrl)) return;
+    private static void CheckLogoUrl(string? logoUrl, string fieldName, string baseOrigin)
+    {
+        if (string.IsNullOrEmpty(logoUrl)) return;
 
-            if (!Uri.TryCreate(logoUrl, UriKind.Absolute, out var logoUri) ||
-                logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
-            {
-                throw new BrantaPaymentException("platformLogoUrl domain does not match the configured baseUrl domain");
-            }
+        if (!Uri.TryCreate(logoUrl, UriKind.Absolute, out var logoUri) ||
+            logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
+        {
+            throw new BrantaPaymentException($"{fieldName} domain does not match the configured baseUrl domain");
         }
     }
 }
