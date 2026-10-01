@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [[3.2.2](https://github.com/BrantaOps/branta-dotnet/compare/3.2.1...3.2.2)] - 2026-09-30
+
+### Fixed
+- Fixed a same-origin validation gap: if the first payment in a `GetPaymentsAsync` response had no `PlatformLogoUrl`, validation silently stopped checking every later payment's logo URLs entirely. Logo-URL checks now run independently per payment, and now also cover `PlatformLogoLightUrl`, `ParentPlatform.LogoUrl`/`LogoLightUrl`, and `ChildPlatform.LogoUrl`/`LogoLightUrl` (previously only `PlatformLogoUrl` was checked)
+
+## [[3.2.1](https://github.com/BrantaOps/branta-dotnet/compare/3.2.0...3.2.1)] - 2026-08-29
 
 ### Fixed
 - `GetPaymentsByQrCodeAsync` now verifies that the plaintext Bitcoin address parsed from a scanned QR code matches the address decrypted via `branta_id`/`branta_secret`, throwing `BrantaPaymentException` with `Reason: BrantaPaymentExceptionReason.Tampered` on mismatch. Closes a gap where an attacker could swap the visible address in a `bitcoin:` URI while leaving a legitimate, verified `branta_id`/`branta_secret` pair untouched (ported from `branta-js` 3.2.1)
