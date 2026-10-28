@@ -8,9 +8,25 @@ using Microsoft.Extensions.Options;
 
 namespace Branta.Tests.V2.Integration;
 
+file sealed class LiveFactAttribute : FactAttribute
+{
+    public LiveFactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable("BRANTA_SKIP_INTEGRATION") != null)
+            Skip = "Integration tests skipped (BRANTA_SKIP_INTEGRATION set)";
+    }
+}
+
 file sealed class SimpleHttpClientFactory : IHttpClientFactory
 {
-    public HttpClient CreateClient(string name) => new();
+    public HttpClient CreateClient(string name)
+    {
+        var client = new HttpClient();
+        var token = Environment.GetEnvironmentVariable("BRANTA_INTEGRATION_METRICS_TOKEN");
+        if (!string.IsNullOrEmpty(token))
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Branta-Integration-Token", token);
+        return client;
+    }
 }
 
 file static class ServiceFactory
@@ -54,35 +70,35 @@ public class ProductionExampleQRCodeTests
     private const string NotFound =
         "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 
-    [Fact]
+    [LiveFact]
     public async Task OnChain_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(OnChain);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task Lightning_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(Lightning);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkOnChain_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkOnChain);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkLightning_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkLightning);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task NotFound_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(NotFound);
@@ -110,35 +126,35 @@ public class ProductionStrictExampleQRCodeTests
     private const string NotFound =
         "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 
-    [Fact]
+    [LiveFact]
     public async Task OnChain_PlainText_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(OnChain);
         Assert.Empty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task Lightning_PlainText_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(Lightning);
         Assert.Empty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkOnChain_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkOnChain);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkLightning_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkLightning);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task NotFound_PlainText_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(NotFound);
@@ -166,35 +182,35 @@ public class StagingExampleQRCodeTests
     private const string NotFound =
         "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 
-    [Fact]
+    [LiveFact]
     public async Task OnChain_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(OnChain);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task Lightning_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(Lightning);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkOnChain_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkOnChain);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkLightning_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkLightning);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task NotFound_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(NotFound);
@@ -222,35 +238,35 @@ public class StagingStrictExampleQRCodeTests
     private const string NotFound =
         "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 
-    [Fact]
+    [LiveFact]
     public async Task OnChain_PlainText_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(OnChain);
         Assert.Empty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task Lightning_PlainText_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(Lightning);
         Assert.Empty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkOnChain_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkOnChain);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task ZkLightning_ReturnsPayment()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(ZkLightning);
         Assert.NotEmpty(result.Payments);
     }
 
-    [Fact]
+    [LiveFact]
     public async Task NotFound_PlainText_ReturnsEmpty()
     {
         var result = await _service.GetPaymentsByQrCodeAsync(NotFound);
