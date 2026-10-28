@@ -19,7 +19,14 @@ file sealed class LiveFactAttribute : FactAttribute
 
 file sealed class SimpleHttpClientFactory : IHttpClientFactory
 {
-    public HttpClient CreateClient(string name) => new();
+    public HttpClient CreateClient(string name)
+    {
+        var client = new HttpClient();
+        var token = Environment.GetEnvironmentVariable("BRANTA_INTEGRATION_METRICS_TOKEN");
+        if (!string.IsNullOrEmpty(token))
+            client.DefaultRequestHeaders.TryAddWithoutValidation("X-Branta-Integration-Token", token);
+        return client;
+    }
 }
 
 file static class ServiceFactory
