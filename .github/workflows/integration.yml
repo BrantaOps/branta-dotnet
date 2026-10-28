@@ -1,0 +1,17 @@
+name: Live integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"
+
+jobs:
+  guardrail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Example QR codes against staging and production
+        run: dotnet test -f net8.0 --filter FullyQualifiedName~ExampleQRCodes

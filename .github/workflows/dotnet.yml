@@ -21,6 +21,8 @@ jobs:
       run: dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory coverage
+      env:
+        BRANTA_SKIP_INTEGRATION: "1"
     - name: Upload coverage artifact
       if: always()
       uses: actions/upload-artifact@v4
