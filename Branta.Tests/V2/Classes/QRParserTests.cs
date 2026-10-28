@@ -130,6 +130,15 @@ public class QRParserTests
     }
 
     [Fact]
+    public void QRParser_SignetArkAddress_SetsArkAddressType()
+    {
+        var result = new QRParser("tark1qqjqtest");
+
+        Assert.Equal("tark1qqjqtest", result.Destination);
+        Assert.Equal(DestinationType.ArkAddress, result.DestinationType);
+    }
+
+    [Fact]
     public void QRParser_SilentPaymentAddress_SetsSilentPaymentType()
     {
         var result = new QRParser("sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw");
