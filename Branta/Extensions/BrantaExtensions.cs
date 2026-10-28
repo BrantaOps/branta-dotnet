@@ -42,7 +42,9 @@ public static class BrantaExtensions
         value.StartsWith("lntb", StringComparison.OrdinalIgnoreCase) ||
         value.StartsWith("lnbcrt", StringComparison.OrdinalIgnoreCase);
 
-    public static bool IsArk(this string value) => value.StartsWith("ark1", StringComparison.OrdinalIgnoreCase);
+    public static bool IsArk(this string value) =>
+        value.StartsWith("ark1", StringComparison.OrdinalIgnoreCase) ||
+        value.StartsWith("tark1", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsSilentPayment(this string value) =>
         value.StartsWith("sp1", StringComparison.OrdinalIgnoreCase) ||

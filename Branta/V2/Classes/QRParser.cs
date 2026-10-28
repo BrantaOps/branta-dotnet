@@ -92,7 +92,7 @@ public partial class QRParser
         if (value.IsBolt11()) return Enums.DestinationType.Bolt11;
         if (value.StartsWith("lno", StringComparison.OrdinalIgnoreCase)) return Enums.DestinationType.Bolt12;
         if (value.StartsWith("LNURL", StringComparison.OrdinalIgnoreCase)) return Enums.DestinationType.LnUrl;
-        if (value.StartsWith("ark1", StringComparison.OrdinalIgnoreCase)) return Enums.DestinationType.ArkAddress;
+        if (value.IsArk()) return Enums.DestinationType.ArkAddress;
         if (value.IsSilentPayment()) return Enums.DestinationType.SilentPayment;
         if (IsEthereumAddress(value)) return Enums.DestinationType.TetherAddress;
         if (IsTronAddress(value)) return Enums.DestinationType.TetherAddress;

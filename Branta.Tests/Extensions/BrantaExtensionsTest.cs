@@ -74,6 +74,13 @@ public class BrantaExtensionsTest
     }
 
     [Fact]
+    public void IsArk_ReturnsTrue_ForTark1Prefix()
+    {
+        Assert.True("tark1qqjqtest".IsArk());
+        Assert.True("TARK1QQJQTEST".IsArk());
+    }
+
+    [Fact]
     public void IsArk_ReturnsFalse_ForNonArkValues()
     {
         Assert.False("bc1qabc".IsArk());
@@ -118,6 +125,7 @@ public class BrantaExtensionsTest
     public void GetHashZkType_ReturnsArkAddress_ForArkAddress()
     {
         Assert.Equal(DestinationType.ArkAddress, "ark1qqjqtest".GetHashZkType());
+        Assert.Equal(DestinationType.ArkAddress, "tark1qqjqtest".GetHashZkType());
     }
 
     [Fact]
