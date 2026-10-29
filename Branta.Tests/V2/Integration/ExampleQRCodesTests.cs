@@ -12,8 +12,8 @@ file sealed class LiveFactAttribute : FactAttribute
 {
     public LiveFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("BRANTA_SKIP_INTEGRATION") != null)
-            Skip = "Integration tests skipped (BRANTA_SKIP_INTEGRATION set)";
+        if (Environment.GetEnvironmentVariable("BRANTA_RUN_INTEGRATION") != "1")
+            Skip = "Live lookups skipped unless BRANTA_RUN_INTEGRATION=1";
     }
 }
 
