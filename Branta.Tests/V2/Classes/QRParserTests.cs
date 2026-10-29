@@ -213,4 +213,39 @@ public class QRParserTests
         Assert.Equal("sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw", result.Destinations[1].Value);
         Assert.Equal(DestinationType.SilentPayment, result.Destinations[1].Type);
     }
+
+    [Fact]
+    public void QRParser_Bip321BcAndTb_AreOnChainAddresses()
+    {
+        var result = new QRParser("bitcoin:?bc=bc1qmerchant&tb=tb1qtest");
+
+        Assert.Equal("", result.Destination);
+        Assert.Equal(new[] { "", "bc1qmerchant", "tb1qtest" }, result.Destinations.Select(d => d.Value));
+        Assert.Equal(DestinationType.BitcoinAddress, result.Destinations[1].Type);
+        Assert.Equal(DestinationType.BitcoinAddress, result.Destinations[2].Type);
+        Assert.False(result.HasUnverifiableInstruction);
+    }
+
+    [Fact]
+    public void QRParser_SpParam_AddsSilentPaymentDestination()
+    {
+        var result = new QRParser("bitcoin:bc1qmerchant?sp=sp1qqexample");
+
+        Assert.Equal("sp1qqexample", result.Destinations[1].Value);
+        Assert.Equal(DestinationType.SilentPayment, result.Destinations[1].Type);
+        Assert.False(result.HasUnverifiableInstruction);
+    }
+
+    [Fact]
+    public void QRParser_LnoAndPay_AreUnverifiable()
+    {
+        var lno = new QRParser("bitcoin:bc1qmerchant?lno=lno1qqexample");
+        Assert.Equal("lno1qqexample", lno.Destinations[1].Value);
+        Assert.Equal(DestinationType.Bolt12, lno.Destinations[1].Type);
+        Assert.True(lno.HasUnverifiableInstruction);
+
+        var pay = new QRParser("bitcoin:bc1qmerchant?pay=bitcoin:bc1qother");
+        Assert.True(pay.HasUnverifiableInstruction);
+        Assert.Equal(new[] { "bc1qmerchant" }, pay.Destinations.Select(d => d.Value));
+    }
 }

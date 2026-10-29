@@ -18,6 +18,9 @@ public partial class QRParser
 
     public string? OnChainEncryptionSecret { get; set; }
 
+    /// <summary>A payable instruction this SDK cannot bind to a decrypted destination.</summary>
+    public bool HasUnverifiableInstruction { get; private set; }
+
     public QRParser(string qrText)
     {
         var text = qrText.Trim();
@@ -32,27 +35,42 @@ public partial class QRParser
         {
             var dest = GetDestination(text);
             if (dest != null)
-                Destinations.Add(new QrDestination(dest, GetDestinationType(text)));
+            {
+                var destType = GetDestinationType(text);
+                Destinations.Add(new QrDestination(dest, destType));
+                if (dest.Length > 0 && destType != Enums.DestinationType.BitcoinAddress && dest.GetHashZkType() == null)
+                    HasUnverifiableInstruction = true;
+            }
 
             var queryParams = ParseQueryString(uri.Query);
             OnChainEncryptionText = queryParams.GetValueOrDefault("branta_id");
             OnChainEncryptionSecret = queryParams.GetValueOrDefault("branta_secret");
 
-            var lightningValue = queryParams.GetValueOrDefault("lightning");
-            if (lightningValue != null)
-                Destinations.Add(new QrDestination(lightningValue, DetectPlainTextType(lightningValue)));
+            void AddBindable(string? value, Enums.DestinationType? type, bool onChain)
+            {
+                if (value == null) return;
+                Destinations.Add(new QrDestination(value, type));
+                if (value.Length > 0 && !onChain && value.GetHashZkType() == null)
+                    HasUnverifiableInstruction = true;
+            }
 
-            var bolt12Value = queryParams.GetValueOrDefault("bolt12");
-            if (bolt12Value != null)
-                Destinations.Add(new QrDestination(bolt12Value, DetectPlainTextType(bolt12Value)));
+            foreach (var key in new[] { "lightning", "bolt12", "ark", "silent_payment" })
+            {
+                var value = queryParams.GetValueOrDefault(key);
+                AddBindable(value, value == null ? null : DetectPlainTextType(value), false);
+            }
 
-            var arkValue = queryParams.GetValueOrDefault("ark");
-            if (arkValue != null)
-                Destinations.Add(new QrDestination(arkValue, DetectPlainTextType(arkValue)));
+            AddBindable(queryParams.GetValueOrDefault("bc"), Enums.DestinationType.BitcoinAddress, true);
+            AddBindable(queryParams.GetValueOrDefault("tb"), Enums.DestinationType.BitcoinAddress, true);
 
-            var silentPaymentValue = queryParams.GetValueOrDefault("silent_payment");
-            if (silentPaymentValue != null)
-                Destinations.Add(new QrDestination(silentPaymentValue, DetectPlainTextType(silentPaymentValue)));
+            var spValue = queryParams.GetValueOrDefault("sp");
+            AddBindable(spValue, spValue == null ? null : DetectPlainTextType(spValue), false);
+
+            var lnoValue = queryParams.GetValueOrDefault("lno");
+            AddBindable(lnoValue, string.IsNullOrEmpty(lnoValue) ? null : DetectPlainTextType(lnoValue) ?? Enums.DestinationType.Bolt12, false);
+
+            if (!string.IsNullOrEmpty(queryParams.GetValueOrDefault("pay")))
+                HasUnverifiableInstruction = true;
 
             return;
         }
