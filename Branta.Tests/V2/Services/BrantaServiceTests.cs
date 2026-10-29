@@ -265,14 +265,23 @@ public class BrantaServiceTests
     [Fact]
     public async Task GetPaymentsByQrCodeAsync_LightningQrWithZkParams_NoPlainOnChainAddress_DecryptsWithoutComparison()
     {
-        _clientMock
-            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([ZkBitcoinPayment]);
+        var payment = new PaymentBuilder()
+            .AddDestination(EncryptedBolt11, type: DestinationType.Bolt11)
+            .SetZk()
+            .AddDestination(EncryptedBitcoinAddress, type: DestinationType.BitcoinAddress)
+            .SetZk()
+            .Build();
 
-        var qrText = $"lightning:{Bolt11Invoice}?branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        var qrText = $"lightning:{Bolt11Invoice}?branta_id={EncryptedBolt11}&branta_secret={Secret}";
         var result = await _service.GetPaymentsByQrCodeAsync(qrText);
 
-        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.Single(result.Payments);
+        Assert.Equal(DecryptedBolt11, result.Payments[0].Destinations[0].Value);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[1].Value);
     }
 
     [Fact]
