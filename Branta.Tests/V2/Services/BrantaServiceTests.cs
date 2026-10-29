@@ -265,14 +265,23 @@ public class BrantaServiceTests
     [Fact]
     public async Task GetPaymentsByQrCodeAsync_LightningQrWithZkParams_NoPlainOnChainAddress_DecryptsWithoutComparison()
     {
-        _clientMock
-            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([ZkBitcoinPayment]);
+        var payment = new PaymentBuilder()
+            .AddDestination(EncryptedBolt11, type: DestinationType.Bolt11)
+            .SetZk()
+            .AddDestination(EncryptedBitcoinAddress, type: DestinationType.BitcoinAddress)
+            .SetZk()
+            .Build();
 
-        var qrText = $"lightning:{Bolt11Invoice}?branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        var qrText = $"lightning:{Bolt11Invoice}?branta_id={EncryptedBolt11}&branta_secret={Secret}";
         var result = await _service.GetPaymentsByQrCodeAsync(qrText);
 
-        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.Single(result.Payments);
+        Assert.Equal(DecryptedBolt11, result.Payments[0].Destinations[0].Value);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[1].Value);
     }
 
     [Fact]
@@ -295,6 +304,123 @@ public class BrantaServiceTests
         var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.GetPaymentsByQrCodeAsync(qrText));
 
         Assert.Equal(BrantaPaymentExceptionReason.Tampered, ex.Reason);
+    }
+
+    private const string WrongSecret = "00000000-0000-4000-8000-000000000000";
+
+    private void SetupZkBitcoinLookup()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([ZkBitcoinPayment]);
+    }
+
+    private void VerifyNoLookup()
+    {
+        _clientMock.Verify(c => c.GetPaymentsAsync(It.IsAny<string>(), It.IsAny<BrantaClientOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_SwappedAddressAndWrongSecret_ReturnsNoPayments()
+    {
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBitcoinAddress, WrongSecret)).Throws(new Exception("auth tag mismatch"));
+        SetupZkBitcoinLookup();
+
+        var qrText = $"bitcoin:{SwappedAddress}?branta_id={EncryptedBitcoinAddress}&branta_secret={WrongSecret}";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Empty(result.Payments);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_AttackerLightningLeg_ReturnsNoPayments()
+    {
+        SetupZkBitcoinLookup();
+
+        var qrText = $"bitcoin:{BitcoinAddress}?branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}&lightning=lnbc1attacker";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Empty(result.Payments);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_AttackerArkLeg_ReturnsNoPayments()
+    {
+        SetupZkBitcoinLookup();
+
+        var qrText = $"bitcoin:{BitcoinAddress}?branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}&ark=ark1attacker";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Empty(result.Payments);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_Bip321BcSwap_Rejects()
+    {
+        SetupZkBitcoinLookup();
+
+        var qrText = $"bitcoin:?bc={SwappedAddress}&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.GetPaymentsByQrCodeAsync(qrText));
+
+        Assert.Equal(BrantaPaymentExceptionReason.Tampered, ex.Reason);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_Bip321BcMatch_ReturnsDecryptedPayment()
+    {
+        SetupZkBitcoinLookup();
+
+        var qrText = $"bitcoin:?bc={BitcoinAddress}&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Single(result.Payments);
+        Assert.Equal(BitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.False(result.Payments[0].Destinations[0].IsEncrypted);
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_PathAndBcDisagree_RejectsBeforeLookup()
+    {
+        var qrText = $"bitcoin:{BitcoinAddress}?bc={SwappedAddress}&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.GetPaymentsByQrCodeAsync(qrText));
+
+        Assert.Equal(BrantaPaymentExceptionReason.Tampered, ex.Reason);
+        VerifyNoLookup();
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_PayInstruction_ReturnsNoPaymentsWithoutLookup()
+    {
+        var qrText = $"bitcoin:{BitcoinAddress}?pay=bitcoin:{SwappedAddress}&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Empty(result.Payments);
+        Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}", result.VerifyUrl);
+        VerifyNoLookup();
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_LnoInstruction_ReturnsNoPaymentsWithoutLookup()
+    {
+        var qrText = $"bitcoin:{BitcoinAddress}?lno=lno1qqattacker&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Empty(result.Payments);
+        VerifyNoLookup();
+    }
+
+    [Fact]
+    public async Task GetPaymentsByQrCodeAsync_NoPayableInstruction_WrongSecret_ReturnsEncryptedRecord()
+    {
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBitcoinAddress, WrongSecret)).Throws(new Exception("auth tag mismatch"));
+        SetupZkBitcoinLookup();
+
+        var qrText = $"bitcoin:?branta_id={EncryptedBitcoinAddress}&branta_secret={WrongSecret}";
+        var result = await _service.GetPaymentsByQrCodeAsync(qrText);
+
+        Assert.Single(result.Payments);
+        Assert.Equal(EncryptedBitcoinAddress, result.Payments[0].Destinations[0].Value);
+        Assert.True(result.Payments[0].Destinations[0].IsEncrypted);
     }
 
     #endregion

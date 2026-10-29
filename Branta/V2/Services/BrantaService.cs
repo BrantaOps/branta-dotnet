@@ -14,16 +14,46 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
     private readonly BrantaClientOptions _defaultOptions = defaultOptions.Value;
     private readonly ISecretGenerator _secretGenerator = secretGenerator ?? new GuidSecretGenerator();
 
+    private const string TamperedMessage = "The Bitcoin address in the QR code does not match the address verified by Branta. The QR code may have been tampered with.";
+
     private static bool AddressesMatch(string a, string b)
     {
-        bool IsBech32(string v) => v.StartsWith("bc1", StringComparison.OrdinalIgnoreCase);
+        bool IsBech32(string v) =>
+            v.StartsWith("bc1", StringComparison.OrdinalIgnoreCase) ||
+            v.StartsWith("tb1", StringComparison.OrdinalIgnoreCase) ||
+            v.StartsWith("bcrt1", StringComparison.OrdinalIgnoreCase);
         if (IsBech32(a) && IsBech32(b)) return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         return a == b;
     }
 
-    public Task<PaymentsResult> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken ct = default)
+    private static string? UniformOnChainAddress(QRParser parser)
+    {
+        var addresses = parser.Destinations
+            .Where(d => d.Type == DestinationType.BitcoinAddress && !string.IsNullOrWhiteSpace(d.Value))
+            .Select(d => d.Value)
+            .ToList();
+        if (addresses.Count == 0) return null;
+
+        var first = addresses[0];
+        foreach (var address in addresses.Skip(1))
+        {
+            if (!AddressesMatch(first, address))
+                throw new BrantaPaymentException(TamperedMessage, BrantaPaymentExceptionReason.Tampered);
+        }
+
+        return first;
+    }
+
+    public async Task<PaymentsResult> GetPaymentsByQrCodeAsync(string qrText, BrantaClientOptions? options = null, CancellationToken ct = default)
     {
         var parser = new QRParser(qrText);
+        var expectedOnChainAddress = UniformOnChainAddress(parser);
+
+        if (parser.HasUnverifiableInstruction)
+        {
+            var lookup = parser.OnChainEncryptionText ?? parser.Destination ?? string.Empty;
+            return new PaymentsResult { Payments = [], VerifyUrl = BuildVerifyUrl(options, lookup) };
+        }
 
         if (parser.IsOnChainZk())
         {
@@ -31,15 +61,14 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 .Where(d => d.Value.GetHashZkType().HasValue)
                 .Select(d => d.Value)
                 .ToList();
-            var onChainAddress = parser.Destinations.FirstOrDefault(d => d.Type == DestinationType.BitcoinAddress)?.Value;
-            return GetPaymentsForZkAsync(parser.OnChainEncryptionText!, parser.OnChainEncryptionSecret, additionalValues, onChainAddress, options, ct);
+            return await GetPaymentsForZkAsync(parser.OnChainEncryptionText!, parser.OnChainEncryptionSecret, additionalValues, expectedOnChainAddress, options, ct);
         }
 
         var destination = parser.Destination!;
         if (_defaultOptions.GetPrivacy(options) == PrivacyMode.Strict && destination.GetHashZkType() == null)
-            return Task.FromResult(new PaymentsResult { Payments = [], VerifyUrl = BuildVerifyUrl(options, destination) });
+            return new PaymentsResult { Payments = [], VerifyUrl = BuildVerifyUrl(options, destination) };
 
-        return GetPaymentsAsync(destination, null, options, ct);
+        return await GetPaymentsAsync(destination, null, options, ct);
     }
 
     private async Task<PaymentsResult> GetPaymentsForZkAsync(string lookupValue, string? encryptionKey, IReadOnlyList<string> additionalHashValues, string? expectedOnChainAddress, BrantaClientOptions? options, CancellationToken ct)
@@ -47,22 +76,31 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         var payments = await client.GetPaymentsAsync(lookupValue, options, ct);
 
         var keys = new Dictionary<string, string>();
+        var bound = new List<Payment>();
         foreach (var payment in payments)
         {
-            DecryptDestinations(payment, lookupValue, encryptionKey, null, keys, expectedOnChainAddress);
+            var onChainBound = DecryptDestinations(payment, lookupValue, encryptionKey, null, keys, expectedOnChainAddress);
+            var hashesBound = true;
             foreach (var value in additionalHashValues)
-                DecryptHashZkDestinations(payment, value, keys);
+            {
+                if (!DecryptHashZkDestinations(payment, value, keys))
+                    hashesBound = false;
+            }
+
+            if (onChainBound && hashesBound)
+                bound.Add(payment);
         }
 
-        return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
+        return new PaymentsResult { Payments = bound, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
-    private void DecryptHashZkDestinations(Payment payment, string plainValue, Dictionary<string, string> keys)
+    private bool DecryptHashZkDestinations(Payment payment, string plainValue, Dictionary<string, string> keys)
     {
         var hashZkType = plainValue.GetHashZkType();
-        if (!hashZkType.HasValue) return;
+        if (!hashZkType.HasValue) return false;
 
         var key = plainValue.ToNormalizedHash();
+        var bound = false;
         foreach (var destination in payment.Destinations)
         {
             if (!destination.IsZk || destination.Type != hashZkType.Value) continue;
@@ -72,12 +110,15 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 destination.IsEncrypted = false;
                 keys.TryAdd(destination.ZkId!, key);
                 TryDecryptMetadata(payment, destination, key);
+                bound = true;
             }
             catch
             {
                 // Key didn't match this destination — leave it encrypted.
             }
         }
+
+        return bound;
     }
 
     public async Task<PaymentsResult> GetPaymentsAsync(string destinationValue, string? destinationEncryptionKey = null, BrantaClientOptions? options = null, CancellationToken ct = default)
@@ -109,8 +150,9 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
         return new PaymentsResult { Payments = payments, VerifyUrl = BuildVerifyUrl(options, lookupValue, keys) };
     }
 
-    private void DecryptDestinations(Payment payment, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys, string? expectedOnChainAddress = null)
+    private bool DecryptDestinations(Payment payment, string destinationValue, string? encryptionKey, DestinationType? hashZkType, Dictionary<string, string> keys, string? expectedOnChainAddress = null)
     {
+        var onChainBound = expectedOnChainAddress == null;
         foreach (var destination in payment.Destinations)
         {
             destination.IsEncrypted = destination.IsZk;
@@ -132,11 +174,10 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
 
                 if (expectedOnChainAddress != null && !AddressesMatch(decrypted, expectedOnChainAddress))
                 {
-                    throw new BrantaPaymentException(
-                        "The Bitcoin address in the QR code does not match the address verified by Branta. The QR code may have been tampered with.",
-                        BrantaPaymentExceptionReason.Tampered);
+                    throw new BrantaPaymentException(TamperedMessage, BrantaPaymentExceptionReason.Tampered);
                 }
 
+                if (expectedOnChainAddress != null) onChainBound = true;
                 destination.Value = decrypted;
                 destination.IsEncrypted = false;
                 keys.TryAdd(destination.ZkId!, encryptionKey);
@@ -158,6 +199,8 @@ public class BrantaService(IBrantaClient client, IAesEncryption aesEncryption, I
                 }
             }
         }
+
+        return onChainBound;
     }
 
     private void TryDecryptMetadata(Payment payment, Destination destination, string keyUsed)
