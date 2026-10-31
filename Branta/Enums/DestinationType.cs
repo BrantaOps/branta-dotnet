@@ -33,14 +33,6 @@ public enum DestinationType
     BitcoinAddress,
     [JsonPropertyName("bolt11")]
     Bolt11,
-    [JsonPropertyName("bolt12")]
-    Bolt12,
-    [JsonPropertyName("ln_url")]
-    LnUrl,
-    [JsonPropertyName("tether_address")]
-    TetherAddress,
-    [JsonPropertyName("ln_address")]
-    LnAddress,
     [JsonPropertyName("ark_address")]
     ArkAddress,
     [JsonPropertyName("silent_payment")]

@@ -11,19 +11,19 @@ public class BrantaExtensionsTest
     [Fact]
     public void GetUrl_Localhost()
     {
-        Assert.Equal("http://localhost:3000", BrantaServerBaseUrl.Localhost.GetUrl());
+        Assert.Equal("http://localhost:3000", BrantaEnvironment.Localhost.GetUrl());
     }
 
     [Fact]
     public void GetUrl_Production()
     {
-        Assert.Equal("https://guardrail.branta.pro", BrantaServerBaseUrl.Production.GetUrl());
+        Assert.Equal("https://guardrail.branta.pro", BrantaEnvironment.Production.GetUrl());
     }
 
     [Fact]
     public void GetUrl_Staging()
     {
-        Assert.Equal("https://staging.guardrail.branta.pro", BrantaServerBaseUrl.Staging.GetUrl());
+        Assert.Equal("https://staging.guardrail.branta.pro", BrantaEnvironment.Staging.GetUrl());
     }
 
     // IsBolt11
@@ -113,31 +113,31 @@ public class BrantaExtensionsTest
         Assert.False("ark1qqjqtest".IsSilentPayment());
     }
 
-    // GetHashZkType
+    // GetDerivedKeyType
 
     [Fact]
-    public void GetHashZkType_ReturnsBolt11_ForBolt11Invoice()
+    public void GetDerivedKeyType_ReturnsBolt11_ForBolt11Invoice()
     {
-        Assert.Equal(DestinationType.Bolt11, "lnbc100n1ptest".GetHashZkType());
+        Assert.Equal(DestinationType.Bolt11, "lnbc100n1ptest".GetDerivedKeyType());
     }
 
     [Fact]
-    public void GetHashZkType_ReturnsArkAddress_ForArkAddress()
+    public void GetDerivedKeyType_ReturnsArkAddress_ForArkAddress()
     {
-        Assert.Equal(DestinationType.ArkAddress, "ark1qqjqtest".GetHashZkType());
-        Assert.Equal(DestinationType.ArkAddress, "tark1qqjqtest".GetHashZkType());
+        Assert.Equal(DestinationType.ArkAddress, "ark1qqjqtest".GetDerivedKeyType());
+        Assert.Equal(DestinationType.ArkAddress, "tark1qqjqtest".GetDerivedKeyType());
     }
 
     [Fact]
-    public void GetHashZkType_ReturnsSilentPayment_ForSilentPaymentAddress()
+    public void GetDerivedKeyType_ReturnsSilentPayment_ForSilentPaymentAddress()
     {
-        Assert.Equal(DestinationType.SilentPayment, "sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw".GetHashZkType());
+        Assert.Equal(DestinationType.SilentPayment, "sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw".GetDerivedKeyType());
     }
 
     [Fact]
-    public void GetHashZkType_ReturnsNull_ForBitcoinAddress()
+    public void GetDerivedKeyType_ReturnsNull_ForBitcoinAddress()
     {
-        Assert.Null("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".GetHashZkType());
+        Assert.Null("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".GetDerivedKeyType());
     }
 
     // ToNormalizedHash

@@ -13,25 +13,12 @@ public class PaymentBuilder
 
     public PaymentBuilder AddDestination(string address, DestinationType? type = null)
     {
-        payment.Destinations.Add(new Destination()
+        payment.Destinations.Add(new Destination
         {
             Value = address,
             Type = type,
-            IsZk = false
+            Id = Guid.NewGuid().ToString()
         });
-
-        return this;
-    }
-
-    public PaymentBuilder SetZk()
-    {
-        var destination = payment.Destinations?.Last();
-
-        if (destination != null)
-        {
-            destination.IsZk = true;
-            destination.ZkId = Guid.NewGuid().ToString();
-        }
 
         return this;
     }

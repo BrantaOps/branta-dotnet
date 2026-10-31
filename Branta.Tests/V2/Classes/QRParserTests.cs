@@ -19,19 +19,18 @@ public class QRParserTests
     [Fact]
     public void QRParser_BitcoinUriWithBrantaParams_SetsZkProperties()
     {
-        // branta_id is URI-encoded per BIP-321; value "abc+def=" encoded as "abc%2Bdef%3D"
         var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?branta_id=abc%2Bdef%3D&branta_secret=1234");
 
         Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result.Destination);
         Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
         Assert.Equal("abc+def=", result.OnChainEncryptionText);
         Assert.Equal("1234", result.OnChainEncryptionSecret);
+        Assert.True(result.HasBrantaParams());
     }
 
     [Fact]
     public void QRParser_BitcoinUri_DecodesUriEncodedLightningParam()
     {
-        // lightning value is URI-encoded per BIP-321; value "lnbc100n1ptest" encoded as "lnbc100n1ptest%3Dpadded"
         var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?lightning=lnbc100n1ptest%3Dpadded");
 
         Assert.Equal(2, result.Destinations.Count);
@@ -45,6 +44,15 @@ public class QRParserTests
         var result = new QRParser("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
 
         Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result.Destination);
+        Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
+    }
+
+    [Fact]
+    public void QRParser_TestnetBech32_SetsBitcoinAddressType()
+    {
+        var result = new QRParser("tb1qtest");
+
+        Assert.Equal("tb1qtest", result.Destination);
         Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
     }
 
@@ -67,57 +75,23 @@ public class QRParserTests
     }
 
     [Fact]
-    public void QRParser_LightningBolt12Uri_SetsBolt12Type()
+    public void QRParser_LightningBolt12Uri_IsUnverifiable()
     {
         var result = new QRParser("lightning:lno1qcptest");
 
         Assert.Equal("lno1qcptest", result.Destination);
-        Assert.Equal(DestinationType.Bolt12, result.DestinationType);
+        Assert.Null(result.DestinationType);
+        Assert.True(result.HasUnverifiableInstruction);
     }
 
     [Fact]
-    public void QRParser_PlainBolt12_SetsBolt12Type()
+    public void QRParser_PlainBolt12_HasNoType()
     {
         var result = new QRParser("lno1qcptest");
 
         Assert.Equal("lno1qcptest", result.Destination);
-        Assert.Equal(DestinationType.Bolt12, result.DestinationType);
-    }
-
-    [Fact]
-    public void QRParser_LightningLnUrlUri_SetsLnUrlType()
-    {
-        var result = new QRParser("lightning:LNURL1DP68GURN8GHJ");
-
-        Assert.Equal("LNURL1DP68GURN8GHJ", result.Destination);
-        Assert.Equal(DestinationType.LnUrl, result.DestinationType);
-    }
-
-    [Fact]
-    public void QRParser_PlainLnUrl_SetsLnUrlType()
-    {
-        var result = new QRParser("LNURL1DP68GURN8GHJ");
-
-        Assert.Equal("LNURL1DP68GURN8GHJ", result.Destination);
-        Assert.Equal(DestinationType.LnUrl, result.DestinationType);
-    }
-
-    [Fact]
-    public void QRParser_EthereumAddress_SetsTetherAddressType()
-    {
-        var result = new QRParser("0x742d35Cc6634C0532925a3b844Bc454e4438f44e");
-
-        Assert.Equal("0x742d35Cc6634C0532925a3b844Bc454e4438f44e", result.Destination);
-        Assert.Equal(DestinationType.TetherAddress, result.DestinationType);
-    }
-
-    [Fact]
-    public void QRParser_TronAddress_SetsTetherAddressType()
-    {
-        var result = new QRParser("TJmUNSGV6b1CCVXN1KkABY49nUJGWDH3Hd");
-
-        Assert.Equal("TJmUNSGV6b1CCVXN1KkABY49nUJGWDH3Hd", result.Destination);
-        Assert.Equal(DestinationType.TetherAddress, result.DestinationType);
+        Assert.Null(result.DestinationType);
+        Assert.False(result.HasUnverifiableInstruction);
     }
 
     [Fact]
@@ -184,7 +158,7 @@ public class QRParserTests
         Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
         Assert.Equal("lnbc100n1ptest", result.Destinations[1].Value);
         Assert.Equal(DestinationType.Bolt11, result.Destinations[1].Type);
-        Assert.False(result.IsOnChainZk());
+        Assert.False(result.HasBrantaParams());
     }
 
     [Fact]
@@ -199,7 +173,7 @@ public class QRParserTests
         Assert.Equal(DestinationType.Bolt11, result.Destinations[1].Type);
         Assert.Equal("ark100testaddress", result.Destinations[2].Value);
         Assert.Equal(DestinationType.ArkAddress, result.Destinations[2].Type);
-        Assert.False(result.IsOnChainZk());
+        Assert.False(result.HasBrantaParams());
     }
 
     [Fact]
@@ -237,12 +211,11 @@ public class QRParserTests
     }
 
     [Fact]
-    public void QRParser_LnoAndPay_AreUnverifiable()
+    public void QRParser_LnoAndPay_AreUnverifiableAndNotAdded()
     {
         var lno = new QRParser("bitcoin:bc1qmerchant?lno=lno1qqexample");
-        Assert.Equal("lno1qqexample", lno.Destinations[1].Value);
-        Assert.Equal(DestinationType.Bolt12, lno.Destinations[1].Type);
         Assert.True(lno.HasUnverifiableInstruction);
+        Assert.Equal(new[] { "bc1qmerchant" }, lno.Destinations.Select(d => d.Value));
 
         var pay = new QRParser("bitcoin:bc1qmerchant?pay=bitcoin:bc1qother");
         Assert.True(pay.HasUnverifiableInstruction);

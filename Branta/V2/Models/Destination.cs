@@ -11,14 +11,19 @@ public class Destination
     public bool IsPrimary { get; set; }
 
     [JsonPropertyName("zk")]
-    public bool IsZk { get; set; }
+    public bool Zk
+    {
+        get => true;
+        set => IsEncrypted = value;
+    }
 
     [JsonIgnore]
-    public bool IsEncrypted { get; set; }
+    public bool IsEncrypted { get; set; } = true;
 
     public DestinationType? Type { get; set; }
 
-    public string? ZkId { get; set; }
+    [JsonPropertyName("zk_id")]
+    public string? Id { get; set; }
 
     [JsonPropertyName("encrypted_dek")]
     public string? EncryptedDek { get; set; }

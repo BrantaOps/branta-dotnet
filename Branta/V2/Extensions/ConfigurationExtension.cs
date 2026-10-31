@@ -9,7 +9,7 @@ namespace Branta.V2.Extensions;
 
 public static class ConfigurationExtension
 {
-    public static IServiceCollection ConfigureBrantaServices(this IServiceCollection services, BrantaClientOptions? defaultOptions = null)
+    public static IServiceCollection ConfigureBrantaServices(this IServiceCollection services, BrantaApiOptions? defaultOptions = null)
     {
         services.AddHttpClient();
 

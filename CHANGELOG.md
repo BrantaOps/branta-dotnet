@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-10-31
+
+Port of `@branta-ops/branta` 4.0.2.
+
+### Removed
+- **BREAKING:** `PrivacyMode` and the `Privacy` client option. The SDK encrypts every destination: on-chain lookups need `branta_id` / `branta_secret`; bolt11, Ark, and silent payments still resolve from the value.
+- **BREAKING:** `PaymentBuilder.SetZk()` and `Destination.IsZk` / `Destination.ZkId`.
+- **BREAKING:** `GetPaymentsAsync` and `GetPaymentsByQrCodeAsync`. Wallets call `VerifyAsync(input)` for both QR scan and clipboard paste.
+- **BREAKING:** `verify()` returns `{ Status, VerifyUrl }` with `Status` of `Match`, `Unknown`, `Tampered`, or `Incomplete`. A swapped address is `Tampered`, not a thrown exception. `Payments` is present only on `Match`. `PaymentsResult` and `BrantaPaymentExceptionReason` are gone.
+- **BREAKING:** `DestinationType.Bolt12`, `LnUrl`, `TetherAddress`, and `LnAddress`. `DestinationType` is the set of types `AddPaymentAsync` accepts: bitcoin, bolt11, Ark, and silent payments.
+- **BREAKING:** `BrantaClientOptions` is `BrantaApiOptions`. `BaseUrl` is `Environment`; `BrantaServerBaseUrl` is `BrantaEnvironment`; `DefaultApiKey` is `ApiKey`.
+- **BREAKING:** `QRParseException`. Nothing threw it.
+- **BREAKING:** `Payment.BtcPayServerPluginVersion`.
+- **BREAKING:** `Payment.GetDefaultValue()`.
+- **BREAKING:** `Destination.ZkId` is `Destination.Id`. Guardrail still receives `zk_id`.
+
+### Added
+- `VerifyAsync` status `Incomplete` when the lookup does not finish (5xx, 429, or no network). A 404 is still `Unknown`.
+
+### Fixed
+- `VerifyAsync` of a `bitcoin:` URI with `branta_id` / `branta_secret` and no payable destination is `Unknown`. Finding the record is not a match.
+- `VerifyAsync` of a bolt11, Ark, or silent payment is `Unknown` unless a destination of that type decrypts. A Guardrail hit is not a match by itself.
+
+### Changed
+- README is the .NET surface (install, DI, samples). Product rules live in the [developer docs](https://developer.branta.pro).
+- A bolt11 / Ark / silent-payment miss no longer retries the raw string.
+- A raw on-chain address is not looked up. `VerifyAsync` returns `Unknown` for those destinations, including testnet `tb1` / `bcrt1`.
+- `AddPaymentAsync` infers `bitcoin_address` from the value when `Type` is omitted, so `AddDestination(value)` still encrypts.
+- POST always sends `zk: true` (Guardrail wire field).
+
 ## [[3.2.4](https://github.com/BrantaOps/branta-dotnet/compare/3.2.3...3.2.4)] - 2026-10-29
 
 ### Fixed
