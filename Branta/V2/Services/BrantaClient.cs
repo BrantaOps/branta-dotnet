@@ -4,6 +4,7 @@ using Branta.Extensions;
 using Branta.V2.Interfaces;
 using Branta.V2.Models;
 using Microsoft.Extensions.Options;
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -11,22 +12,44 @@ using System.Text.Json;
 
 namespace Branta.V2.Services;
 
-public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaClientOptions> brantaClientOptions) : IBrantaClient
+public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> brantaApiOptions) : IBrantaClient
 {
-    private readonly BrantaClientOptions? _defaultOptions = brantaClientOptions?.Value;
+    private readonly BrantaApiOptions? _defaultOptions = brantaApiOptions?.Value;
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
 
-    public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
         var httpClient = CreateConfiguredClient(options);
 
-        var response = await httpClient.GetAsync($"/v2/payments/{Uri.EscapeDataString(destinationValue)}", cancellationToken);
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.GetAsync($"/v2/payments/{Uri.EscapeDataString(destinationValue)}", cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        {
+            throw new IncompleteError(ex.Message);
+        }
 
-        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength == 0)
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return [];
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new IncompleteError(response.StatusCode.ToString());
+        }
+
+        if (response.Content.Headers.ContentLength == 0)
         {
             return [];
         }
@@ -38,7 +61,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return payments;
     }
 
-    public async Task<Payment?> PostPaymentAsync(Payment payment, BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<Payment?> PostPaymentAsync(Payment payment, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
         var httpClient = CreateConfiguredClient(options, requireApiKey: true);
 
@@ -57,11 +80,15 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         }
 
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (responseBody.Length == 0)
+        {
+            return null;
+        }
 
         return JsonSerializer.Deserialize<Payment>(responseBody, _jsonOptions);
     }
 
-    public async Task<bool> IsApiKeyValidAsync(BrantaClientOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<bool> IsApiKeyValidAsync(BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
         var httpClient = CreateConfiguredClient(options, requireApiKey: true);
 
@@ -70,7 +97,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return response.IsSuccessStatusCode;
     }
 
-    private HttpClient CreateConfiguredClient(BrantaClientOptions? options, bool requireApiKey = false)
+    private HttpClient CreateConfiguredClient(BrantaApiOptions? options, bool requireApiKey = false)
     {
         var httpClient = httpClientFactory.CreateClient();
         httpClient.BaseAddress = _defaultOptions.GetUri(options);
@@ -87,7 +114,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         return httpClient;
     }
 
-    private void SetHmacHeaders(HttpRequestMessage request, string json, HttpClient httpClient, BrantaClientOptions? options)
+    private void SetHmacHeaders(HttpRequestMessage request, string json, HttpClient httpClient, BrantaApiOptions? options)
     {
         var hmacSecret = _defaultOptions.GetHmacSecret(options);
         if (hmacSecret == null) return;
@@ -130,7 +157,7 @@ public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaC
         if (!Uri.TryCreate(logoUrl, UriKind.Absolute, out var logoUri) ||
             logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
         {
-            throw new BrantaPaymentException($"{fieldName} domain does not match the configured baseUrl domain");
+            throw new BrantaPaymentException($"{fieldName} domain does not match the configured API domain");
         }
     }
 }

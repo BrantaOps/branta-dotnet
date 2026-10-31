@@ -1,148 +1,165 @@
 using Branta.Enums;
 using Branta.Extensions;
 using System.Text.RegularExpressions;
+using DestinationKind = Branta.Enums.DestinationType;
 
 namespace Branta.V2.Classes;
 
-public record QrDestination(string Value, DestinationType? Type);
-
-public partial class QRParser
+public class QrDestination
 {
+    public required string Value { get; init; }
+    public DestinationKind? Type { get; init; }
+}
+
+public class QRParser
+{
+    private static readonly Regex ColonToQuestion = new(@"(?<=:)[^?]*", RegexOptions.Compiled);
+
     public List<QrDestination> Destinations { get; } = [];
-
-    public string? Destination => Destinations.FirstOrDefault()?.Value;
-
-    public DestinationType? DestinationType => Destinations.FirstOrDefault()?.Type;
-
-    public string? OnChainEncryptionText { get; set; }
-
-    public string? OnChainEncryptionSecret { get; set; }
-
-    /// <summary>A payable instruction this SDK cannot bind to a decrypted destination.</summary>
+    public string? OnChainEncryptionText { get; private set; }
+    public string? OnChainEncryptionSecret { get; private set; }
     public bool HasUnverifiableInstruction { get; private set; }
 
     public QRParser(string qrText)
     {
-        var text = qrText.Trim();
+        var text = NormalizeQrText(qrText);
 
         if (!Uri.TryCreate(text, UriKind.Absolute, out var uri))
         {
-            Destinations.Add(new QrDestination(text, DetectPlainTextType(text)));
+            Destinations.Add(new QrDestination { Value = text, Type = DetectDestinationType(text) });
             return;
         }
 
-        if (uri.Scheme is "bitcoin" or "lightning")
+        var scheme = uri.Scheme.ToLowerInvariant();
+        if (scheme is "bitcoin" or "lightning")
         {
             var dest = GetDestination(text);
             if (dest != null)
             {
                 var destType = GetDestinationType(text);
-                Destinations.Add(new QrDestination(dest, destType));
-                if (dest.Length > 0 && destType != Enums.DestinationType.BitcoinAddress && dest.GetHashZkType() == null)
+                Destinations.Add(new QrDestination { Value = dest, Type = destType });
+                if (dest != "" && destType != DestinationKind.BitcoinAddress && dest.GetDerivedKeyType() == null)
+                {
                     HasUnverifiableInstruction = true;
+                }
             }
 
             var queryParams = ParseQueryString(uri.Query);
-            OnChainEncryptionText = queryParams.GetValueOrDefault("branta_id");
-            OnChainEncryptionSecret = queryParams.GetValueOrDefault("branta_secret");
+            if (queryParams.TryGetValue("branta_id", out var brantaId))
+                OnChainEncryptionText = brantaId;
+            if (queryParams.TryGetValue("branta_secret", out var brantaSecret))
+                OnChainEncryptionSecret = brantaSecret;
 
-            void AddBindable(string? value, Enums.DestinationType? type, bool onChain)
-            {
-                if (value == null) return;
-                Destinations.Add(new QrDestination(value, type));
-                if (value.Length > 0 && !onChain && value.GetHashZkType() == null)
-                    HasUnverifiableInstruction = true;
-            }
-
-            foreach (var key in new[] { "lightning", "bolt12", "ark", "silent_payment" })
-            {
-                var value = queryParams.GetValueOrDefault(key);
-                AddBindable(value, value == null ? null : DetectPlainTextType(value), false);
-            }
-
-            AddBindable(queryParams.GetValueOrDefault("bc"), Enums.DestinationType.BitcoinAddress, true);
-            AddBindable(queryParams.GetValueOrDefault("tb"), Enums.DestinationType.BitcoinAddress, true);
-
-            var spValue = queryParams.GetValueOrDefault("sp");
-            AddBindable(spValue, spValue == null ? null : DetectPlainTextType(spValue), false);
-
-            var lnoValue = queryParams.GetValueOrDefault("lno");
-            AddBindable(lnoValue, string.IsNullOrEmpty(lnoValue) ? null : DetectPlainTextType(lnoValue) ?? Enums.DestinationType.Bolt12, false);
-
-            if (!string.IsNullOrEmpty(queryParams.GetValueOrDefault("pay")))
-                HasUnverifiableInstruction = true;
+            AddBindable(queryParams, "lightning", onChain: false);
+            AddBindable(queryParams, "ark", onChain: false);
+            AddBindable(queryParams, "silent_payment", onChain: false);
+            if (queryParams.TryGetValue("bc", out var bc))
+                AddBindableValue(bc, DestinationKind.BitcoinAddress, onChain: true);
+            if (queryParams.TryGetValue("tb", out var tb))
+                AddBindableValue(tb, DestinationKind.BitcoinAddress, onChain: true);
+            AddBindable(queryParams, "sp", onChain: false);
+            if (queryParams.ContainsKey("bolt12")) HasUnverifiableInstruction = true;
+            if (queryParams.ContainsKey("lno")) HasUnverifiableInstruction = true;
+            if (queryParams.ContainsKey("pay")) HasUnverifiableInstruction = true;
 
             return;
         }
 
-        Destinations.Add(new QrDestination(text, null));
+        Destinations.Add(new QrDestination { Value = text });
     }
 
-    public bool IsOnChainZk()
+    public string? Destination => Destinations.Count > 0 ? Destinations[0].Value : null;
+
+    public DestinationKind? DestinationType => Destinations.Count > 0 ? Destinations[0].Type : null;
+
+    public bool HasBrantaParams() => OnChainEncryptionText != null && OnChainEncryptionSecret != null;
+
+    public static DestinationKind? DetectDestinationType(string value)
     {
-        return OnChainEncryptionText != null && OnChainEncryptionSecret != null;
+        if (value.IsBolt11()) return DestinationKind.Bolt11;
+        if (value.IsArk()) return DestinationKind.ArkAddress;
+        if (value.IsSilentPayment()) return DestinationKind.SilentPayment;
+        if (value.StartsWith('1') ||
+            value.StartsWith('3') ||
+            value.StartsWith("bc1", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("tb1", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("bcrt1", StringComparison.OrdinalIgnoreCase))
+        {
+            return DestinationKind.BitcoinAddress;
+        }
+        return null;
+    }
+
+    private void AddBindable(Dictionary<string, string> queryParams, string key, bool onChain)
+    {
+        if (!queryParams.TryGetValue(key, out var value)) return;
+        AddBindableValue(value, DetectDestinationType(value), onChain);
+    }
+
+    private void AddBindableValue(string value, DestinationKind? type, bool onChain)
+    {
+        if (value != "" && !onChain && value.GetDerivedKeyType() == null)
+        {
+            HasUnverifiableInstruction = true;
+            return;
+        }
+        Destinations.Add(new QrDestination { Value = value, Type = type });
     }
 
     private static string? GetDestination(string text)
     {
-        var match = ColonToQuestionMarkRegex().Match(text);
+        var match = ColonToQuestion.Match(text);
         return match.Success ? match.Value : null;
     }
 
-    private static DestinationType? GetDestinationType(string text)
+    private static DestinationKind? GetDestinationType(string text)
     {
         if (text.StartsWith("bitcoin:", StringComparison.OrdinalIgnoreCase))
-            return Enums.DestinationType.BitcoinAddress;
-
+            return DestinationKind.BitcoinAddress;
         if (text.StartsWith("lightning:", StringComparison.OrdinalIgnoreCase))
         {
             var dest = GetDestination(text);
-            if (dest?.IsBolt11() == true) return Enums.DestinationType.Bolt11;
-            if (dest?.StartsWith("lno", StringComparison.OrdinalIgnoreCase) == true) return Enums.DestinationType.Bolt12;
-            if (dest?.StartsWith("LNURL", StringComparison.OrdinalIgnoreCase) == true) return Enums.DestinationType.LnUrl;
+            if (dest != null && dest.IsBolt11()) return DestinationKind.Bolt11;
         }
-
         return null;
     }
 
-    private static DestinationType? DetectPlainTextType(string value)
+    private static string NormalizeQrText(string qrText)
     {
-        if (value.IsBolt11()) return Enums.DestinationType.Bolt11;
-        if (value.StartsWith("lno", StringComparison.OrdinalIgnoreCase)) return Enums.DestinationType.Bolt12;
-        if (value.StartsWith("LNURL", StringComparison.OrdinalIgnoreCase)) return Enums.DestinationType.LnUrl;
-        if (value.IsArk()) return Enums.DestinationType.ArkAddress;
-        if (value.IsSilentPayment()) return Enums.DestinationType.SilentPayment;
-        if (IsEthereumAddress(value)) return Enums.DestinationType.TetherAddress;
-        if (IsTronAddress(value)) return Enums.DestinationType.TetherAddress;
-        if (LnAddressRegex().IsMatch(value)) return Enums.DestinationType.LnAddress;
-        if (value.StartsWith("1") || value.StartsWith("3") || value.StartsWith("bc1", StringComparison.OrdinalIgnoreCase))
-            return Enums.DestinationType.BitcoinAddress;
-        return null;
+        var value = qrText.Trim();
+        var start = 0;
+        var end = value.Length;
+        while (start < end && value[start] <= 0x20) start++;
+        while (end > start && value[end - 1] <= 0x20) end--;
+        value = value[start..end];
+        return value.Replace("\t", "").Replace("\n", "").Replace("\r", "");
     }
-
-    private static bool IsEthereumAddress(string value)
-        => value.Length == 42 && value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) && EthereumHexRegex().IsMatch(value[2..]);
-
-    private static bool IsTronAddress(string value)
-        => value.Length == 34 && value.StartsWith('T');
 
     private static Dictionary<string, string> ParseQueryString(string query)
-        => query.TrimStart('?')
-            .Split('&', StringSplitOptions.RemoveEmptyEntries)
-            .Select(p => p.Split('=', 2))
-            .Where(p => p[0].Length > 0)
-            .ToDictionary(
-                p => Uri.UnescapeDataString(p[0]),
-                p => p.Length > 1 ? Uri.UnescapeDataString(p[1]) : string.Empty,
-                StringComparer.OrdinalIgnoreCase
-            );
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var trimmed = query.StartsWith('?') ? query[1..] : query;
+        if (trimmed.Length == 0) return result;
 
-    [GeneratedRegex(@"(?<=:)[^?]*")]
-    private static partial Regex ColonToQuestionMarkRegex();
+        foreach (var part in trimmed.Split('&'))
+        {
+            if (part.Length == 0) continue;
+            var idx = part.IndexOf('=');
+            var rawKey = idx == -1 ? part : part[..idx];
+            var rawValue = idx == -1 ? "" : part[(idx + 1)..];
+            if (rawKey.Length == 0) continue;
+            try
+            {
+                var key = Uri.UnescapeDataString(rawKey).ToLowerInvariant();
+                var value = Uri.UnescapeDataString(rawValue);
+                result.TryAdd(key, value);
+            }
+            catch (UriFormatException)
+            {
+                // skip malformed parameter
+            }
+        }
 
-    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
-    private static partial Regex LnAddressRegex();
-
-    [GeneratedRegex(@"^[0-9a-fA-F]{40}$")]
-    private static partial Regex EthereumHexRegex();
+        return result;
+    }
 }

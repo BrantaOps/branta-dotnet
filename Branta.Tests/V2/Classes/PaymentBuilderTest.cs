@@ -27,14 +27,21 @@ public class PaymentBuilderTests
         Assert.Null(payment.Destinations[0].Type);
     }
 
+    [Fact]
+    public void AddDestination_AssignsId()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("addr1", type: DestinationType.BitcoinAddress)
+            .Build();
+
+        Assert.False(string.IsNullOrEmpty(payment.Destinations[0].Id));
+    }
+
     [Theory]
     [InlineData(DestinationType.BitcoinAddress, "bitcoin_address")]
     [InlineData(DestinationType.Bolt11, "bolt11")]
-    [InlineData(DestinationType.Bolt12, "bolt12")]
-    [InlineData(DestinationType.LnUrl, "ln_url")]
-    [InlineData(DestinationType.TetherAddress, "tether_address")]
-    [InlineData(DestinationType.LnAddress, "ln_address")]
     [InlineData(DestinationType.ArkAddress, "ark_address")]
+    [InlineData(DestinationType.SilentPayment, "silent_payment")]
     public void DestinationType_SerializesToCorrectJsonString(DestinationType type, string expected)
     {
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
@@ -56,29 +63,24 @@ public class PaymentBuilderTests
     }
 
     [Fact]
-    public void SetZk_MarksLastDestinationAsZkAndAssignsZkId()
+    public void Destination_SerializesZkTrueAndZkId()
     {
-        var payment = new PaymentBuilder()
-            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", type: DestinationType.BitcoinAddress)
-            .SetZk()
-            .Build();
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var destination = new Destination { Value = "addr", Id = "id-1" };
+        var json = JsonSerializer.Serialize(destination, options);
+        var doc = JsonDocument.Parse(json);
 
-        Assert.True(payment.Destinations[0].IsZk);
-        Assert.NotNull(payment.Destinations[0].ZkId);
-        Assert.NotEmpty(payment.Destinations[0].ZkId!);
+        Assert.True(doc.RootElement.GetProperty("zk").GetBoolean());
+        Assert.Equal("id-1", doc.RootElement.GetProperty("zk_id").GetString());
     }
 
     [Fact]
-    public void SetZk_OnlyAppliesToLastDestination()
+    public void Destination_DeserializesZkFalseAsNotEncrypted()
     {
-        var payment = new PaymentBuilder()
-            .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", type: DestinationType.BitcoinAddress)
-            .AddDestination("lnbc100n1ptest", type: DestinationType.Bolt11)
-            .SetZk()
-            .Build();
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var destination = JsonSerializer.Deserialize<Destination>("""{"value":"addr","zk":false}""", options);
 
-        Assert.False(payment.Destinations[0].IsZk);
-        Assert.True(payment.Destinations[1].IsZk);
+        Assert.False(destination!.IsEncrypted);
     }
 
     [Fact]

@@ -25,13 +25,6 @@ public class Payment
 
     public Platform? ChildPlatform { get; set; }
 
-    public string? BtcPayServerPluginVersion { get; set; }
-
     [JsonIgnore]
     public bool IsMetadataDecrypted { get; set; }
-
-    public string GetDefaultValue()
-    {
-        return Destinations?.FirstOrDefault()?.Value ?? throw new Exception("Payment has no destinations.");
-    }
 }

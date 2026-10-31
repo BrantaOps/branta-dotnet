@@ -1,8 +1,8 @@
-﻿using Branta.Attributes;
+using Branta.Attributes;
 
 namespace Branta.Enums;
 
-public enum BrantaServerBaseUrl
+public enum BrantaEnvironment
 {
     [Url("https://staging.guardrail.branta.pro")]
     Staging = 0,

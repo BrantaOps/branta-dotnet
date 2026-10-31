@@ -1,6 +1,6 @@
 # Branta .NET SDK
 
-If you are implementing this SDK in a consumer project, see the **Integration Guide** section at the top of `README.md` — it covers integration types, recommended flows, and rules.
+If you are implementing this SDK in a consumer project, see `README.md`. Product rules live in the [developer docs](https://developer.branta.pro).
 
 ---
 
@@ -12,26 +12,26 @@ If you are implementing this SDK in a consumer project, see the **Integration Gu
 - `Branta.sln` — wires the two projects together.
 
 Inside `Branta/`, V2 is the only supported API surface:
-- `V2/Interfaces/IBrantaService.cs` — public entry point (`GetPaymentsAsync`, `GetPaymentsByQrCodeAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
-- `V2/Services/BrantaService.cs` — orchestrates ZK encrypt/decrypt around HTTP calls.
+- `V2/Interfaces/IBrantaService.cs` — public entry point (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
+- `V2/Services/BrantaService.cs` — encrypt/decrypt around HTTP calls; maps GET failures to `VerifyStatus`.
 - `V2/Services/BrantaClient.cs` — raw HTTP client; do not call directly from consumer code.
-- `V2/Extensions/` — `ConfigureBrantaServices(BrantaClientOptions)` is the DI entry point.
-- `Enums/PrivacyMode.cs`, `Enums/DestinationType.cs`, `Enums/BrantaServerBaseUrl.cs`.
+- `V2/Extensions/` — `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point.
+- `Enums/DestinationType.cs`, `Enums/BrantaEnvironment.cs`.
 
 ### Build / test / release
 - Build: `dotnet build Branta.sln`
 - Test: `dotnet test Branta.sln`
+- Live example-QR tests: `BRANTA_RUN_INTEGRATION=1 dotnet test --filter FullyQualifiedName~ExampleQRCodes`
 - Release: bump `<AssemblyVersion>` in `Branta/Branta.csproj`, build in Release, upload `Branta/bin/Release/Branta.X.X.X.nupkg` to nuget.org.
 
 ### Key behaviors to preserve
-- **`PrivacyMode.Strict` is the default.** It forbids plain-text on-chain lookups (`GetPaymentsAsync` throws `BrantaPaymentException`, `GetPaymentsByQrCodeAsync` returns an empty `PaymentsResult` with a populated `VerifyUrl`) and forbids non-ZK destinations on `AddPaymentAsync`. `Loose` removes those restrictions.
-- **`VerifyUrl` is always returned**, including on a miss.
-- **ZK destinations.** Bitcoin addresses are encrypted with a caller-supplied secret (random GUID via `GuidSecretGenerator`); hash-ZK types (bolt11/bolt12/ln_url/ln_address/ark/tether) use a deterministic key from a normalized hash of the value.
-- **Prefer `GetPaymentsByQrCodeAsync`** for QR-driven flows.
-- **Never surface lookup failures to the user.**
+- **Encrypt everything.** On-chain lookups need `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value.
+- **`VerifyUrl` is always returned**, including on a miss, tamper, or incomplete lookup.
+- **`VerifyAsync` statuses:** `Match` (show the card), `Unknown` (not in Branta / 404), `Tampered` (destination altered), `Incomplete` (5xx, 429, or unreachable). Do not treat incomplete as unknown.
+- **Derived-key bind:** a Guardrail hit is not a match unless a destination of that type decrypts.
+- Keep parity with `branta-js` 4.x.
 
 ### Conventions
 - Public API lives under `Branta.V2.*`.
-- `BrantaClientOptions` can be passed per-call to override DI-registered defaults.
+- `BrantaApiOptions` can be passed per-call to override DI-registered defaults.
 - Tests mirror SDK namespaces: `Branta.Tests/V2/Services/...` mirrors `Branta/V2/Services/...`.
-- Keep parity with `branta-js` and `branta-dart`: mirror public method changes across all three SDKs.

@@ -9,32 +9,30 @@ namespace Branta.Extensions;
 
 public static class BrantaExtensions
 {
-    public static string GetUrl(this BrantaServerBaseUrl server)
+    public static string GetUrl(this BrantaEnvironment environment)
     {
-        var field = server.GetType().GetField(server.ToString());
+        var field = environment.GetType().GetField(environment.ToString());
         var attribute = field?.GetCustomAttribute<UrlAttribute>();
-        return attribute?.Url ?? throw new ArgumentException($"No URL defined for {server}");
+        return attribute?.Url ?? throw new ArgumentException($"No URL defined for {environment}");
     }
 
-    public static Uri GetUri(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
+    public static Uri GetUri(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
     {
         return new Uri(defaultOptions.GetBaseUrl(overrideOptions));
     }
 
-    public static string GetBaseUrl(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
+    public static string GetBaseUrl(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
     {
-        var baseUrl = overrideOptions?.BaseUrl ?? defaultOptions?.BaseUrl ?? throw new Exception("Branta: BaseUrl is a required option.");
+        var environment = overrideOptions?.Environment ?? defaultOptions?.Environment
+            ?? throw new Exception("Branta: Environment is a required option.");
 
-        return baseUrl.GetUrl();
+        return environment.GetUrl();
     }
 
-    public static PrivacyMode GetPrivacy(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions, PrivacyMode fallback = PrivacyMode.Strict)
-        => overrideOptions?.Privacy ?? defaultOptions?.Privacy ?? fallback;
+    public static string? GetApiKey(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
+        => overrideOptions?.ApiKey ?? defaultOptions?.ApiKey;
 
-    public static string? GetApiKey(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
-        => overrideOptions?.DefaultApiKey ?? defaultOptions?.DefaultApiKey;
-
-    public static string? GetHmacSecret(this BrantaClientOptions? defaultOptions, BrantaClientOptions? overrideOptions)
+    public static string? GetHmacSecret(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
         => overrideOptions?.HmacSecret ?? defaultOptions?.HmacSecret;
 
     public static bool IsBolt11(this string value) =>
@@ -50,7 +48,7 @@ public static class BrantaExtensions
         value.StartsWith("sp1", StringComparison.OrdinalIgnoreCase) ||
         value.StartsWith("tsp1", StringComparison.OrdinalIgnoreCase);
 
-    public static DestinationType? GetHashZkType(this string value)
+    public static DestinationType? GetDerivedKeyType(this string value)
     {
         if (value.IsBolt11()) return DestinationType.Bolt11;
         if (value.IsArk()) return DestinationType.ArkAddress;
