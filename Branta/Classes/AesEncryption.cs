@@ -1,11 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Branta.Classes;
+namespace Branta;
 
-public class AesEncryption
+internal class AesEncryption : IAesEncryption
 {
-    public static string Encrypt(string value, string secret, bool deterministicNonce = false)
+    public string Encrypt(string value, string secret, bool deterministicNonce = false)
     {
         try
         {
@@ -45,7 +45,7 @@ public class AesEncryption
         }
     }
 
-    public static string Decrypt(string encryptedValue, string secret)
+    public string Decrypt(string encryptedValue, string secret)
     {
         try
         {

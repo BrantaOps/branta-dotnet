@@ -1,4 +1,4 @@
-﻿using Branta.Classes;
+﻿using Branta;
 
 namespace Branta.Tests.Classes;
 
@@ -10,9 +10,10 @@ public class AesEncryptionTest
         var address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         var secret = "12345";
 
-        var encryptedValue = AesEncryption.Encrypt(address, secret);
+        var aes = new AesEncryption();
+        var encryptedValue = aes.Encrypt(address, secret);
 
-        Assert.Equal(address, AesEncryption.Decrypt(encryptedValue, secret));
+        Assert.Equal(address, aes.Decrypt(encryptedValue, secret));
     }
 
     [Fact]
@@ -21,8 +22,9 @@ public class AesEncryptionTest
         var address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         var secret = "12345";
 
-        var first = AesEncryption.Encrypt(address, secret, deterministicNonce: true);
-        var second = AesEncryption.Encrypt(address, secret, deterministicNonce: true);
+        var aes = new AesEncryption();
+        var first = aes.Encrypt(address, secret, deterministicNonce: true);
+        var second = aes.Encrypt(address, secret, deterministicNonce: true);
 
         Assert.Equal(first, second);
     }
@@ -33,8 +35,9 @@ public class AesEncryptionTest
         var address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         var secret = "12345";
 
-        var first = AesEncryption.Encrypt(address, secret);
-        var second = AesEncryption.Encrypt(address, secret);
+        var aes = new AesEncryption();
+        var first = aes.Encrypt(address, secret);
+        var second = aes.Encrypt(address, secret);
 
         Assert.NotEqual(first, second);
     }

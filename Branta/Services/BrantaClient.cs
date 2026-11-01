@@ -1,0 +1,160 @@
+using Microsoft.Extensions.Options;
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Branta;
+
+internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> brantaApiOptions) : IBrantaClient
+{
+    private readonly BrantaApiOptions? _defaultOptions = brantaApiOptions?.Value;
+
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var httpClient = CreateConfiguredClient(options);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.GetAsync($"/v2/payments/{Uri.EscapeDataString(destinationValue)}", cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        {
+            throw new IncompleteError(ex.Message);
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return [];
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new IncompleteError(response.StatusCode.ToString());
+        }
+
+        if (response.Content.Headers.ContentLength == 0)
+        {
+            return [];
+        }
+
+        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(_jsonOptions, cancellationToken) ?? [];
+
+        VerifyLogoUrls(httpClient, payments);
+
+        return payments;
+    }
+
+    public async Task<Payment?> PostPaymentAsync(Payment payment, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var httpClient = CreateConfiguredClient(options, requireApiKey: true);
+
+        var json = JsonSerializer.Serialize(payment, _jsonOptions);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/v2/payments")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        SetHmacHeaders(request, json, httpClient, options);
+
+        var response = await httpClient.SendAsync(request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new BrantaPaymentException(response.StatusCode.ToString());
+        }
+
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (responseBody.Length == 0)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<Payment>(responseBody, _jsonOptions);
+    }
+
+    public async Task<bool> IsApiKeyValidAsync(BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var httpClient = CreateConfiguredClient(options, requireApiKey: true);
+
+        var response = await httpClient.GetAsync("/v2/api-keys/health-check", cancellationToken);
+
+        return response.IsSuccessStatusCode;
+    }
+
+    private HttpClient CreateConfiguredClient(BrantaApiOptions? options, bool requireApiKey = false)
+    {
+        var httpClient = httpClientFactory.CreateClient();
+        httpClient.BaseAddress = _defaultOptions.GetUri(options);
+
+        if (requireApiKey)
+        {
+            var apiKey = _defaultOptions.GetApiKey(options)
+                ?? throw new BrantaPaymentException("Unauthorized");
+
+            httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+        }
+
+        return httpClient;
+    }
+
+    private void SetHmacHeaders(HttpRequestMessage request, string json, HttpClient httpClient, BrantaApiOptions? options)
+    {
+        var hmacSecret = _defaultOptions.GetHmacSecret(options);
+        if (hmacSecret == null) return;
+
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
+        var message = $"POST|{baseUrl}/v2/payments|{json}|{timestamp}";
+
+        var keyBytes = Encoding.UTF8.GetBytes(hmacSecret);
+        var messageBytes = Encoding.UTF8.GetBytes(message);
+        using var hmac = new HMACSHA256(keyBytes);
+        var hashBytes = hmac.ComputeHash(messageBytes);
+        var signature = Convert.ToHexString(hashBytes).ToLowerInvariant();
+
+        request.Headers.Add("X-HMAC-Signature", signature);
+        request.Headers.Add("X-HMAC-Timestamp", timestamp);
+    }
+
+    private static void VerifyLogoUrls(HttpClient httpClient, List<Payment> payments)
+    {
+        var baseOrigin = httpClient.BaseAddress?.GetLeftPart(UriPartial.Authority);
+
+        if (baseOrigin == null) return;
+
+        foreach (var payment in payments)
+        {
+            CheckLogoUrl(payment.PlatformLogoUrl, "platformLogoUrl", baseOrigin);
+            CheckLogoUrl(payment.PlatformLogoLightUrl, "platformLogoLightUrl", baseOrigin);
+            CheckLogoUrl(payment.ParentPlatform?.LogoUrl, "parentPlatform.logoUrl", baseOrigin);
+            CheckLogoUrl(payment.ParentPlatform?.LogoLightUrl, "parentPlatform.logoLightUrl", baseOrigin);
+            CheckLogoUrl(payment.ChildPlatform?.LogoUrl, "childPlatform.logoUrl", baseOrigin);
+            CheckLogoUrl(payment.ChildPlatform?.LogoLightUrl, "childPlatform.logoLightUrl", baseOrigin);
+        }
+    }
+
+    private static void CheckLogoUrl(string? logoUrl, string fieldName, string baseOrigin)
+    {
+        if (string.IsNullOrEmpty(logoUrl)) return;
+
+        if (!Uri.TryCreate(logoUrl, UriKind.Absolute, out var logoUri) ||
+            logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
+        {
+            throw new BrantaPaymentException($"{fieldName} domain does not match the configured API domain");
+        }
+    }
+}
