@@ -23,9 +23,7 @@ public class PaymentBuilder
 
     public PaymentBuilder SetDescription(string description)
     {
-        payment.Description = description;
-
-        return this;
+        return AddMetadata("description", description);
     }
 
     public PaymentBuilder AddMetadata(string key, string value)
