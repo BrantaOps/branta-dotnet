@@ -27,6 +27,8 @@ public class Payment
 
     public Platform? ChildPlatform { get; set; }
 
+    public string? BtcPayServerPluginVersion { get; set; }
+
     [JsonIgnore]
     internal bool IsMetadataDecrypted { get; set; }
 }

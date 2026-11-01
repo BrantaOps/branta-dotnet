@@ -61,6 +61,13 @@ public class PaymentBuilder
         return this;
     }
 
+    public PaymentBuilder SetBtcPayServerPluginVersion(string version)
+    {
+        payment.BtcPayServerPluginVersion = version;
+
+        return this;
+    }
+
     public Payment Build()
     {
         return payment;

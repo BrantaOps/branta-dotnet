@@ -180,4 +180,30 @@ public class PaymentBuilderTests
 
         Assert.Same(builder, result);
     }
+
+    [Fact]
+    public void SetBtcPayServerPluginVersion_SetsVersion()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetBtcPayServerPluginVersion("1.2.3")
+            .Build();
+
+        Assert.Equal("1.2.3", payment.BtcPayServerPluginVersion);
+    }
+
+    [Fact]
+    public void BtcPayServerPluginVersion_SerializesToSnakeCase()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var payment = new Payment
+        {
+            Destinations = [],
+            BtcPayServerPluginVersion = "1.2.3"
+        };
+        var json = JsonSerializer.Serialize(payment, options);
+        var doc = JsonDocument.Parse(json);
+
+        Assert.Equal("1.2.3", doc.RootElement.GetProperty("btc_pay_server_plugin_version").GetString());
+    }
 }
