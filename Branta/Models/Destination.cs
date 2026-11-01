@@ -10,7 +10,8 @@ public class Destination
     public bool IsPrimary { get; set; }
 
     [JsonPropertyName("zk")]
-    public bool Zk
+    [JsonInclude]
+    internal bool Zk
     {
         get => true;
         set => IsEncrypted = value;

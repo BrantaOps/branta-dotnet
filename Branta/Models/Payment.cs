@@ -28,5 +28,5 @@ public class Payment
     public Platform? ChildPlatform { get; set; }
 
     [JsonIgnore]
-    public bool IsMetadataDecrypted { get; set; }
+    internal bool IsMetadataDecrypted { get; set; }
 }

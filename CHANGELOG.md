@@ -24,6 +24,7 @@ Port of `@branta-ops/branta` 4.0.2.
 - **BREAKING:** Public types live in `namespace Branta`. `ConfigureBrantaServices` is in `Microsoft.Extensions.DependencyInjection`.
 - **BREAKING:** `CreatePaymentBuilder()` is gone. Use `new PaymentBuilder()`.
 - **BREAKING:** `AddPaymentAsync` returns `AddPaymentResult` (`Payment`, `Secret`, `VerifyUrl`) instead of a tuple.
+- **BREAKING:** `Destination.Zk` and `Payment.IsMetadataDecrypted` are no longer public. POST still sends `zk: true`. Use `Destination.IsEncrypted` after verify.
 
 ### Added
 - `VerifyAsync` status `Incomplete` when the lookup does not finish (5xx, 429, or no network). A 404 is still `Unknown`.
