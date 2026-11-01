@@ -1,11 +1,8 @@
-﻿using Branta.Attributes;
-using Branta.Classes;
-using Branta.Enums;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Branta.Extensions;
+namespace Branta;
 
 internal static class BrantaExtensions
 {

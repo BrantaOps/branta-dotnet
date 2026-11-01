@@ -1,5 +1,4 @@
-using Branta.Enums;
-using Branta.V2.Classes;
+using Branta;
 
 namespace Branta.Tests.V2.Classes;
 

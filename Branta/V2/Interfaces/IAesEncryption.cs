@@ -1,4 +1,4 @@
-namespace Branta.V2.Interfaces;
+namespace Branta;
 
 internal interface IAesEncryption
 {

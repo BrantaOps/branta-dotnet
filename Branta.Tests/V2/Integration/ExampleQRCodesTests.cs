@@ -1,8 +1,4 @@
-using Branta.Classes;
-using Branta.Enums;
-using Branta.V2.Interfaces;
-using Branta.V2.Models;
-using Branta.V2.Services;
+using Branta;
 using Microsoft.Extensions.Options;
 
 namespace Branta.Tests.V2.Integration;

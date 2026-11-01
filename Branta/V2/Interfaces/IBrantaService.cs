@@ -1,8 +1,4 @@
-using Branta.Classes;
-using Branta.V2.Classes;
-using Branta.V2.Models;
-
-namespace Branta.V2.Interfaces;
+namespace Branta;
 
 public interface IBrantaService
 {

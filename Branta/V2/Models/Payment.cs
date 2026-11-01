@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Branta.V2.Models;
+namespace Branta;
 
 public class Payment
 {

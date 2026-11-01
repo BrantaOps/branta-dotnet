@@ -21,6 +21,7 @@ Port of `@branta-ops/branta` 4.0.2.
 - **BREAKING:** `Payment.BtcPayServerPluginVersion`.
 - **BREAKING:** `Payment.GetDefaultValue()`.
 - **BREAKING:** `Destination.ZkId` is `Destination.Id`. Guardrail still receives `zk_id`.
+- **BREAKING:** Public types live in `namespace Branta`. `ConfigureBrantaServices` is in `Microsoft.Extensions.DependencyInjection`.
 
 ### Added
 - `VerifyAsync` status `Incomplete` when the lookup does not finish (5xx, 429, or no network). A 404 is still `Unknown`.

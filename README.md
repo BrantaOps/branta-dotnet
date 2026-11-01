@@ -13,11 +13,7 @@ dotnet add package Branta
 ## Send
 
 ```csharp
-using Branta.Classes;
-using Branta.Enums;
-using Branta.V2.Extensions;
-using Branta.V2.Interfaces;
-using Branta.V2.Models;
+using Branta;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection()
@@ -55,11 +51,7 @@ A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 ## Receive
 
 ```csharp
-using Branta.Classes;
-using Branta.Enums;
-using Branta.V2.Classes;
-using Branta.V2.Extensions;
-using Branta.V2.Interfaces;
+using Branta;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection()

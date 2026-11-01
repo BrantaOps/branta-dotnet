@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Branta.Classes;
+namespace Branta;
 
 internal class AesEncryption
 {

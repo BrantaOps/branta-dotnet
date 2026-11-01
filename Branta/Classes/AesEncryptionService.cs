@@ -1,6 +1,4 @@
-using Branta.V2.Interfaces;
-
-namespace Branta.Classes;
+namespace Branta;
 
 internal class AesEncryptionService : IAesEncryption
 {

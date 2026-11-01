@@ -1,4 +1,4 @@
-﻿using Branta.Classes;
+﻿using Branta;
 
 namespace Branta.Tests.Classes;
 

@@ -1,4 +1,4 @@
-﻿namespace Branta.Attributes;
+﻿namespace Branta;
 
 [AttributeUsage(AttributeTargets.Field, Inherited = false, AllowMultiple = false)]
 internal sealed class UrlAttribute(string url) : Attribute

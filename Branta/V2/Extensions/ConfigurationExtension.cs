@@ -1,12 +1,8 @@
-﻿using Branta.Classes;
-using Branta.V2.Interfaces;
-using Branta.V2.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+﻿using Branta;
 
-namespace Branta.V2.Extensions;
+namespace Microsoft.Extensions.DependencyInjection;
 
-public static class ConfigurationExtension
+public static class BrantaServiceCollectionExtensions
 {
     public static IServiceCollection ConfigureBrantaServices(this IServiceCollection services, BrantaApiOptions? defaultOptions = null)
     {
@@ -14,7 +10,7 @@ public static class ConfigurationExtension
 
         if (defaultOptions != null)
         {
-            services.AddSingleton(Options.Create(defaultOptions));
+            services.AddSingleton(Microsoft.Extensions.Options.Options.Create(defaultOptions));
         }
         services.AddScoped<IBrantaService, BrantaService>();
 

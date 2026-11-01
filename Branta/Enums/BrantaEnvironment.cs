@@ -1,6 +1,4 @@
-using Branta.Attributes;
-
-namespace Branta.Enums;
+namespace Branta;
 
 public enum BrantaEnvironment
 {

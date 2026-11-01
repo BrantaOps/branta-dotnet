@@ -1,8 +1,3 @@
-using Branta.Classes;
-using Branta.Exceptions;
-using Branta.Extensions;
-using Branta.V2.Interfaces;
-using Branta.V2.Models;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Net.Http.Json;
@@ -11,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Branta.V2.Services;
+namespace Branta;
 
 internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> brantaApiOptions) : IBrantaClient
 {

@@ -11,11 +11,12 @@ If you are implementing this SDK in a consumer project, see `README.md`. Product
 - `Branta.Tests/` — xUnit test project mirroring the SDK namespaces.
 - `Branta.sln` — wires the two projects together.
 
-Public API:
+Public API lives in `namespace Branta`:
 - `IBrantaService` / `BrantaService` (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
-- `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point.
 - `PaymentBuilder`, `Payment`, `Destination`, `Platform`, `VerifyResult` / `VerifyStatus`.
 - `BrantaApiOptions`, `BrantaEnvironment`, `DestinationType`, `BrantaPaymentException`.
+
+`ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point in `Microsoft.Extensions.DependencyInjection`.
 
 `BrantaClient`, `QRParser`, and AES helpers are internal. Do not re-export them.
 
@@ -34,4 +35,4 @@ Public API:
 
 ### Conventions
 - `BrantaApiOptions` can be passed per-call to override DI-registered defaults.
-- Tests mirror SDK namespaces: `Branta.Tests/V2/Services/...` mirrors `Branta/V2/Services/...`.
+- Tests mirror SDK folders: `Branta.Tests/V2/Services/...` mirrors `Branta/V2/Services/...`. Public types are `namespace Branta` regardless of folder.

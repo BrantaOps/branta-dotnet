@@ -1,6 +1,4 @@
-using Branta.Enums;
-
-namespace Branta.Classes;
+namespace Branta;
 
 public class BrantaApiOptions
 {

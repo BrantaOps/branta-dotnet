@@ -1,4 +1,4 @@
-namespace Branta.V2.Classes;
+namespace Branta;
 
 internal interface ISecretGenerator
 {

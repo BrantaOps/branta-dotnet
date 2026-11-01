@@ -1,6 +1,4 @@
-using Branta.V2.Classes;
-
-namespace Branta.V2.Services;
+namespace Branta;
 
 internal class GuidSecretGenerator : ISecretGenerator
 {

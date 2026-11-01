@@ -1,9 +1,6 @@
 using System.Net;
 using System.Text;
-using Branta.Classes;
-using Branta.Enums;
-using Branta.Exceptions;
-using Branta.V2.Services;
+using Branta;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -201,9 +198,9 @@ public class BrantaClientTest
     public async Task PostPaymentAsync_401_ThrowsUnauthorized()
     {
         var client = CreateClient("nope", HttpStatusCode.Unauthorized);
-        var payment = new Branta.V2.Models.Payment
+        var payment = new Payment
         {
-            Destinations = [new Branta.V2.Models.Destination { Value = "test-destination" }]
+            Destinations = [new Destination { Value = "test-destination" }]
         };
 
         var options = new BrantaApiOptions { ApiKey = "key" };
@@ -215,9 +212,9 @@ public class BrantaClientTest
     public async Task PostPaymentAsync_500_ThrowsInternalServerError()
     {
         var client = CreateClient("nope", HttpStatusCode.InternalServerError);
-        var payment = new Branta.V2.Models.Payment
+        var payment = new Payment
         {
-            Destinations = [new Branta.V2.Models.Destination { Value = "test-destination" }]
+            Destinations = [new Destination { Value = "test-destination" }]
         };
 
         var options = new BrantaApiOptions { ApiKey = "key" };

@@ -1,13 +1,6 @@
-using Branta.Classes;
-using Branta.Enums;
-using Branta.Exceptions;
-using Branta.Extensions;
-using Branta.V2.Classes;
-using Branta.V2.Interfaces;
-using Branta.V2.Models;
 using Microsoft.Extensions.Options;
 
-namespace Branta.V2.Services;
+namespace Branta;
 
 public class BrantaService : IBrantaService
 {

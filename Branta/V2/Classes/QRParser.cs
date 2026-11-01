@@ -1,8 +1,7 @@
-using Branta.Extensions;
 using System.Text.RegularExpressions;
-using DestinationKind = Branta.Enums.DestinationType;
+using DestinationKind = Branta.DestinationType;
 
-namespace Branta.V2.Classes;
+namespace Branta;
 
 internal class QrDestination
 {

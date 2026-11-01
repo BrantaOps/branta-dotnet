@@ -1,7 +1,4 @@
-using Branta.Enums;
-using Branta.V2.Classes;
-using Branta.V2.Interfaces;
-using Branta.V2.Models;
+using Branta;
 
 namespace Branta.Tests.V2.Integration;
 

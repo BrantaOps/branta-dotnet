@@ -1,8 +1,6 @@
-﻿using Branta.Enums;
-using Branta.V2.Models;
-using System.Text.Json;
+﻿using System.Text.Json;
 
-namespace Branta.V2.Classes;
+namespace Branta;
 
 public class PaymentBuilder
 {

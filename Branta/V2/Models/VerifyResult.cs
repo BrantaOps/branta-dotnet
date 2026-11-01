@@ -1,4 +1,4 @@
-namespace Branta.V2.Models;
+namespace Branta;
 
 public enum VerifyStatus
 {

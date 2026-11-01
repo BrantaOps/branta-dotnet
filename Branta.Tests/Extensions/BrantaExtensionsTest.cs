@@ -1,5 +1,4 @@
-﻿using Branta.Enums;
-using Branta.Extensions;
+﻿using Branta;
 using System.Text.RegularExpressions;
 
 namespace Branta.Tests.Extensions;

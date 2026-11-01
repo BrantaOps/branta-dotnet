@@ -1,7 +1,6 @@
-﻿using Branta.Enums;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace Branta.V2.Models;
+namespace Branta;
 
 public class Destination
 {
