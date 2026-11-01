@@ -66,6 +66,9 @@ public class ProductionExampleQRCodeTests
     private const string NotFound =
         "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 
+    private const string Tampered =
+        "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4?branta_id=Qy4e3KJ9yRs%2BVWq59aSTC6o%2F6vbCnw0v7ZutEs1mxjpGM2i5DgVVl7G0TwFO9CqQ1ws3zNqogQu%2B2%2Bx3U%2BQ8%2FSZtwgjezw%3D%3D&branta_secret=f9b0fd20-b402-4cd2-b68f-3ae3db52dbf5";
+
     [LiveFact]
     public async Task OnChain_ReturnsUnknown()
     {
@@ -107,6 +110,13 @@ public class ProductionExampleQRCodeTests
         var result = await _service.VerifyAsync(NotFound);
         Assert.Equal(VerifyStatus.Unknown, result.Status);
     }
+
+    [LiveFact]
+    public async Task Tampered_ReturnsTampered()
+    {
+        var result = await _service.VerifyAsync(Tampered);
+        Assert.Equal(VerifyStatus.Tampered, result.Status);
+    }
 }
 
 public class StagingExampleQRCodeTests
@@ -122,6 +132,9 @@ public class StagingExampleQRCodeTests
     private const string BrantaOnChain =
         "bitcoin:bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr?branta_id=6SpYCe23r79x0t8rNvmjWqhrg8hen4xz%2FYSXhNJ9HLSYrTRPnm%2BSwAuf6NOKobnwE%2B3MQBNkyTnCtIWpKKX2E9ZUWVedig%3D%3D&branta_secret=05eb145d-b5cb-452a-9256-0bdfd9a15ffa";
 
+    private const string Testnet =
+        "bitcoin:tb1qshra2mlujc9wfscvn4d8aqpyqgxzl55853xg7s?branta_id=fa05KT1L6zIAYx2sHcImF3R5RilwMAXAvx%2F5u2YVBIdvnp30drV7bszFzvpdoA%2FeluN0PXbsxcsD38twzw4%2BL8MFoHxkGQ%3D%3D&branta_secret=0621110e-1ad6-483d-80b6-78697c9f6896";
+
     private const string Ark =
         "ark1qztwuhx7vpytv4dcfeqjsepx3kxstnarelmry2smrfdgt2dv87fas7gtqkk";
 
@@ -133,6 +146,9 @@ public class StagingExampleQRCodeTests
 
     private const string NotFound =
         "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
+
+    private const string Tampered =
+        "bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4?branta_id=6SpYCe23r79x0t8rNvmjWqhrg8hen4xz%2FYSXhNJ9HLSYrTRPnm%2BSwAuf6NOKobnwE%2B3MQBNkyTnCtIWpKKX2E9ZUWVedig%3D%3D&branta_secret=05eb145d-b5cb-452a-9256-0bdfd9a15ffa";
 
     [LiveFact]
     public async Task OnChain_ReturnsUnknown()
@@ -152,6 +168,13 @@ public class StagingExampleQRCodeTests
     public async Task BrantaOnChain_ReturnsMatch()
     {
         var result = await _service.VerifyAsync(BrantaOnChain);
+        Assert.Equal(VerifyStatus.Match, result.Status);
+    }
+
+    [LiveFact]
+    public async Task Testnet_ReturnsMatch()
+    {
+        var result = await _service.VerifyAsync(Testnet);
         Assert.Equal(VerifyStatus.Match, result.Status);
     }
 
@@ -181,5 +204,12 @@ public class StagingExampleQRCodeTests
     {
         var result = await _service.VerifyAsync(NotFound);
         Assert.Equal(VerifyStatus.Unknown, result.Status);
+    }
+
+    [LiveFact]
+    public async Task Tampered_ReturnsTampered()
+    {
+        var result = await _service.VerifyAsync(Tampered);
+        Assert.Equal(VerifyStatus.Tampered, result.Status);
     }
 }

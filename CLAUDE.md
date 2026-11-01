@@ -33,6 +33,5 @@ Public API:
 - Keep parity with `branta-js` 4.x.
 
 ### Conventions
-- Public API lives under `Branta.V2.*`.
 - `BrantaApiOptions` can be passed per-call to override DI-registered defaults.
 - Tests mirror SDK namespaces: `Branta.Tests/V2/Services/...` mirrors `Branta/V2/Services/...`.

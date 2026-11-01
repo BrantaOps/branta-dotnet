@@ -63,7 +63,7 @@ public class PaymentBuilderTests
     }
 
     [Fact]
-    public void Destination_SerializesZkTrueAndZkId()
+    public void Destination_SerializesZkTrueAndId()
     {
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
         var destination = new Destination { Value = "addr", Id = "id-1" };

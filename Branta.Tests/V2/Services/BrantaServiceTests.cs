@@ -28,10 +28,6 @@ public class BrantaServiceTests
     private const string DecryptedBolt11 = "lnbc100n1pdecrypted";
     private static readonly string Bolt11Hash = Bolt11Invoice.ToNormalizedHash();
 
-    public const string ArkAddress = "ark100testaddress";
-    public const string EncryptedArkAddress = "encrypted-ark-address";
-    private static readonly string ArkHash = ArkAddress.ToNormalizedHash();
-
     private static Payment EncryptedBitcoinPayment() => new()
     {
         Destinations = [new Destination { Value = EncryptedBitcoinAddress, Type = DestinationType.BitcoinAddress, Id = "zk1" }]
@@ -70,12 +66,9 @@ public class BrantaServiceTests
         _service = new BrantaService(_clientMock.Object, _aesEncryptionMock.Object, Options.Create(_defaultOptions), _secretGeneratorMock.Object);
 
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBitcoinAddress, Secret)).Returns(BitcoinAddress);
-        _aesEncryptionMock.Setup(e => e.Encrypt(Bolt11Invoice, Bolt11Hash, true)).Returns(EncryptedBolt11);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBolt11, Bolt11Hash)).Returns(DecryptedBolt11);
         _aesEncryptionMock.Setup(e => e.Encrypt(BitcoinAddress, Secret, false)).Returns(EncryptedBitcoinAddress);
-        _aesEncryptionMock.Setup(e => e.Encrypt(ArkAddress, ArkHash, true)).Returns(EncryptedArkAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(Bolt11Invoice.ToLowerInvariant(), Bolt11Hash, true)).Returns(EncryptedBolt11);
-        _aesEncryptionMock.Setup(e => e.Encrypt(ArkAddress.ToLowerInvariant(), ArkHash, true)).Returns(EncryptedArkAddress);
     }
 
     private static void ExpectMatch(VerifyResult result)

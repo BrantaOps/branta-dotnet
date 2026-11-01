@@ -17,7 +17,7 @@ public class QRParserTests
     }
 
     [Fact]
-    public void QRParser_BitcoinUriWithBrantaParams_SetsZkProperties()
+    public void QRParser_BitcoinUriWithBrantaParams_SetsBrantaParams()
     {
         var result = new QRParser("bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?branta_id=abc%2Bdef%3D&branta_secret=1234");
 
