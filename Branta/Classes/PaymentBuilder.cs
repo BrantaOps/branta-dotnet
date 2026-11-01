@@ -9,11 +9,11 @@ public class PaymentBuilder
         Destinations = []
     };
 
-    public PaymentBuilder AddDestination(string address, DestinationType? type = null)
+    public PaymentBuilder AddDestination(string value, DestinationType? type = null)
     {
         payment.Destinations.Add(new Destination
         {
-            Value = address,
+            Value = value,
             Type = type,
             Id = Guid.NewGuid().ToString()
         });
@@ -42,7 +42,7 @@ public class PaymentBuilder
 
     public PaymentBuilder SetTtl(int ttl)
     {
-        payment.TTL = ttl;
+        payment.Ttl = ttl;
 
         return this;
     }

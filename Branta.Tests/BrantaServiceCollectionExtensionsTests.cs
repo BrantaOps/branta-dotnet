@@ -16,6 +16,13 @@ public class BrantaServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void BrantaService_CanBeConstructedFromEnvironment()
+    {
+        var service = new BrantaService(BrantaEnvironment.Localhost);
+        Assert.NotNull(service);
+    }
+
+    [Fact]
     public void BrantaService_CanBeConstructedFromOptions()
     {
         var service = new BrantaService(new BrantaApiOptions { Environment = BrantaEnvironment.Localhost });

@@ -92,7 +92,7 @@ public class PaymentBuilderTests
     }
 
     [Fact]
-    public void Payment_DefaultTtlAndCreatedDate_AreOmittedFromJson()
+    public void Payment_DefaultTtlAndCreatedAt_AreOmittedFromJson()
     {
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
         var payment = new Payment { Destinations = [] };
@@ -122,7 +122,7 @@ public class PaymentBuilderTests
             .SetTtl(3600)
             .Build();
 
-        Assert.Equal(3600, payment.TTL);
+        Assert.Equal(3600, payment.Ttl);
     }
 
     [Fact]

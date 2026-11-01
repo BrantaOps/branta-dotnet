@@ -9,21 +9,21 @@ public class BrantaService : IBrantaService
     private readonly BrantaApiOptions _defaultOptions;
     private readonly ISecretGenerator _secretGenerator;
 
+    public BrantaService(BrantaEnvironment environment, string? apiKey = null)
+        : this(new BrantaApiOptions { Environment = environment, ApiKey = apiKey })
+    {
+    }
+
     public BrantaService(BrantaApiOptions options)
         : this(options, new DefaultHttpClientFactory())
     {
     }
 
     public BrantaService(BrantaApiOptions options, IHttpClientFactory httpClientFactory)
-        : this(httpClientFactory, Options.Create(options))
-    {
-    }
-
-    public BrantaService(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> defaultOptions)
         : this(
-            new BrantaClient(httpClientFactory, defaultOptions),
-            new AesEncryptionService(),
-            defaultOptions,
+            new BrantaClient(httpClientFactory, Options.Create(options)),
+            new AesEncryption(),
+            Options.Create(options),
             new GuidSecretGenerator())
     {
     }

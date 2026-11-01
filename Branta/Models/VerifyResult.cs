@@ -8,7 +8,7 @@ public enum VerifyStatus
     Incomplete
 }
 
-public class VerifyResult
+public sealed record VerifyResult
 {
     public required VerifyStatus Status { get; init; }
 

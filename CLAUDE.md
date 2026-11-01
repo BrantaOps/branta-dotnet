@@ -12,7 +12,7 @@ If you are implementing this SDK in a consumer project, see `README.md`. Product
 - `Branta.sln` — wires the two projects together.
 
 Public API lives in `namespace Branta`:
-- `IBrantaService` / `BrantaService` (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`). Construct with `new BrantaService(BrantaApiOptions)` or DI.
+- `IBrantaService` / `BrantaService` (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`). Construct with `new BrantaService(BrantaEnvironment)` or DI.
 - `PaymentBuilder`, `Payment`, `Destination`, `Platform`, `VerifyResult` / `VerifyStatus`, `AddPaymentResult`.
 - `BrantaApiOptions`, `BrantaEnvironment`, `DestinationType`, `BrantaPaymentException`.
 

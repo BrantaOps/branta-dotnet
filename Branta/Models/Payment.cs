@@ -10,10 +10,10 @@ public class Payment
 
     [JsonPropertyName("created_at")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public DateTime CreatedDate { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public int TTL { get; set; }
+    public int Ttl { get; set; }
 
     public string? Metadata { get; set; }
 

@@ -15,10 +15,7 @@ dotnet add package Branta
 ```csharp
 using Branta;
 
-var service = new BrantaService(new BrantaApiOptions
-{
-    Environment = BrantaEnvironment.Production // Staging everywhere else
-});
+var service = new BrantaService(BrantaEnvironment.Production); // Staging everywhere else
 
 var result = await service.VerifyAsync(input); // scanned QR or pasted text
 
@@ -48,11 +45,7 @@ A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 ```csharp
 using Branta;
 
-var service = new BrantaService(new BrantaApiOptions
-{
-    Environment = BrantaEnvironment.Production,
-    ApiKey = "<api-key>",
-});
+var service = new BrantaService(BrantaEnvironment.Production, apiKey: "<api-key>");
 
 var payment = new PaymentBuilder()
     .SetDescription("Invoice #12345")
@@ -66,7 +59,7 @@ var posted = await service.AddPaymentAsync(payment);
 
 Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR.
 
-Parent platforms: prefer a shared API key and `SetChildPlatform()`. Per-client HMAC (`HmacSecret` + per-call `ApiKey`) is still supported.
+Parent platforms: prefer a shared API key and `SetChildPlatform()`. Per-client HMAC (`HmacSecret` on `BrantaApiOptions`) is still supported.
 
 ASP.NET: `services.ConfigureBrantaServices(options)` registers `IBrantaService`.
 

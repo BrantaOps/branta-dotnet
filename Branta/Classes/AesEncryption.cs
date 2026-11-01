@@ -3,9 +3,9 @@ using System.Text;
 
 namespace Branta;
 
-internal class AesEncryption
+internal class AesEncryption : IAesEncryption
 {
-    public static string Encrypt(string value, string secret, bool deterministicNonce = false)
+    public string Encrypt(string value, string secret, bool deterministicNonce = false)
     {
         try
         {
@@ -45,7 +45,7 @@ internal class AesEncryption
         }
     }
 
-    public static string Decrypt(string encryptedValue, string secret)
+    public string Decrypt(string encryptedValue, string secret)
     {
         try
         {

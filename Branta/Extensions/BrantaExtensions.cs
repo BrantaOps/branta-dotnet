@@ -1,17 +1,17 @@
-﻿using System.Reflection;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 namespace Branta;
 
 internal static class BrantaExtensions
 {
-    public static string GetUrl(this BrantaEnvironment environment)
+    public static string GetUrl(this BrantaEnvironment environment) => environment switch
     {
-        var field = environment.GetType().GetField(environment.ToString());
-        var attribute = field?.GetCustomAttribute<UrlAttribute>();
-        return attribute?.Url ?? throw new ArgumentException($"No URL defined for {environment}");
-    }
+        BrantaEnvironment.Staging => "https://staging.guardrail.branta.pro",
+        BrantaEnvironment.Production => "https://guardrail.branta.pro",
+        BrantaEnvironment.Localhost => "http://localhost:3000",
+        _ => throw new ArgumentException($"No URL defined for {environment}")
+    };
 
     public static Uri GetUri(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
     {

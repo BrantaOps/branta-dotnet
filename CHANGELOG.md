@@ -25,10 +25,11 @@ Port of `@branta-ops/branta` 4.0.2.
 - **BREAKING:** `CreatePaymentBuilder()` is gone. Use `new PaymentBuilder()`.
 - **BREAKING:** `AddPaymentAsync` returns `AddPaymentResult` (`Payment`, `Secret`, `VerifyUrl`) instead of a tuple.
 - **BREAKING:** `Destination.Zk` and `Payment.IsMetadataDecrypted` are no longer public. POST still sends `zk: true`. Use `Destination.IsEncrypted` after verify.
+- **BREAKING:** `Payment.TTL` is `Ttl`. `Payment.CreatedDate` is `CreatedAt`. `ConfigureBrantaServices` requires options.
 
 ### Added
 - `VerifyAsync` status `Incomplete` when the lookup does not finish (5xx, 429, or no network). A 404 is still `Unknown`.
-- `new BrantaService(BrantaApiOptions)` for apps that are not using DI. `ConfigureBrantaServices` still registers `IBrantaService`.
+- `new BrantaService(BrantaEnvironment)` and `new BrantaService(BrantaEnvironment, apiKey)` for apps that are not using DI. HMAC and other options still use `BrantaApiOptions`. `ConfigureBrantaServices(options)` still registers `IBrantaService`.
 
 ### Fixed
 - `VerifyAsync` of a `bitcoin:` URI with `branta_id` / `branta_secret` and no payable destination is `Unknown`. Finding the record is not a match.
