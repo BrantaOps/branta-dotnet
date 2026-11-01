@@ -1,5 +1,4 @@
 ﻿using Branta.Classes;
-using Branta.V2.Classes;
 using Branta.V2.Interfaces;
 using Branta.V2.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,9 +16,6 @@ public static class ConfigurationExtension
         {
             services.AddSingleton(Options.Create(defaultOptions));
         }
-        services.AddScoped<IAesEncryption, AesEncryptionService>();
-        services.AddSingleton<ISecretGenerator, GuidSecretGenerator>();
-        services.AddScoped<IBrantaClient, BrantaClient>();
         services.AddScoped<IBrantaService, BrantaService>();
 
         return services;

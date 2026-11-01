@@ -9,13 +9,33 @@ using Microsoft.Extensions.Options;
 
 namespace Branta.V2.Services;
 
-public class BrantaService(
-    IBrantaClient client,
-    IAesEncryption aesEncryption,
-    IOptions<BrantaApiOptions> defaultOptions,
-    ISecretGenerator secretGenerator) : IBrantaService
+public class BrantaService : IBrantaService
 {
-    private readonly BrantaApiOptions _defaultOptions = defaultOptions.Value;
+    private readonly IBrantaClient _client;
+    private readonly IAesEncryption _aesEncryption;
+    private readonly BrantaApiOptions _defaultOptions;
+    private readonly ISecretGenerator _secretGenerator;
+
+    public BrantaService(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> defaultOptions)
+        : this(
+            new BrantaClient(httpClientFactory, defaultOptions),
+            new AesEncryptionService(),
+            defaultOptions,
+            new GuidSecretGenerator())
+    {
+    }
+
+    internal BrantaService(
+        IBrantaClient client,
+        IAesEncryption aesEncryption,
+        IOptions<BrantaApiOptions> defaultOptions,
+        ISecretGenerator secretGenerator)
+    {
+        _client = client;
+        _aesEncryption = aesEncryption;
+        _defaultOptions = defaultOptions.Value;
+        _secretGenerator = secretGenerator;
+    }
 
     public PaymentBuilder CreatePaymentBuilder() => new();
 
@@ -81,11 +101,11 @@ public class BrantaService(
         string? dek = null;
         if (payment.Metadata != null && payment.Destinations.Count > 0)
         {
-            dek = secretGenerator.Generate();
-            payment.Metadata = aesEncryption.Encrypt(payment.Metadata, dek, false);
+            dek = _secretGenerator.Generate();
+            payment.Metadata = _aesEncryption.Encrypt(payment.Metadata, dek, false);
         }
 
-        var secret = secretGenerator.Generate();
+        var secret = _secretGenerator.Generate();
         var encryptedToKey = new Dictionary<string, string>();
 
         foreach (var destination in payment.Destinations)
@@ -97,11 +117,11 @@ public class BrantaService(
 
             if (type == DestinationType.BitcoinAddress)
             {
-                destination.Value = aesEncryption.Encrypt(destination.Value, secret, secretGenerator.DeterministicNonce);
+                destination.Value = _aesEncryption.Encrypt(destination.Value, secret, _secretGenerator.DeterministicNonce);
                 encryptedToKey[destination.Value] = secret;
                 if (dek != null)
                 {
-                    destination.EncryptedDek = aesEncryption.Encrypt(dek, secret, false);
+                    destination.EncryptedDek = _aesEncryption.Encrypt(dek, secret, false);
                 }
             }
             else
@@ -113,16 +133,16 @@ public class BrantaService(
                 }
                 var normalizedValue = destination.Value.ToLowerInvariant();
                 var key = normalizedValue.ToNormalizedHash();
-                destination.Value = aesEncryption.Encrypt(normalizedValue, key, true);
+                destination.Value = _aesEncryption.Encrypt(normalizedValue, key, true);
                 encryptedToKey[destination.Value] = key;
                 if (dek != null)
                 {
-                    destination.EncryptedDek = aesEncryption.Encrypt(dek, key, false);
+                    destination.EncryptedDek = _aesEncryption.Encrypt(dek, key, false);
                 }
             }
         }
 
-        var responsePayment = await client.PostPaymentAsync(payment, options, cancellationToken)
+        var responsePayment = await _client.PostPaymentAsync(payment, options, cancellationToken)
             ?? throw new BrantaPaymentException("No payment returned from server.");
 
         var keys = new Dictionary<string, string>();
@@ -141,7 +161,7 @@ public class BrantaService(
     }
 
     public Task<bool> IsApiKeyValidAsync(BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
-        => client.IsApiKeyValidAsync(options, cancellationToken);
+        => _client.IsApiKeyValidAsync(options, cancellationToken);
 
     private async Task<(List<Payment> Payments, string VerifyUrl)> LookupByBrantaId(
         string lookupValue,
@@ -151,7 +171,7 @@ public class BrantaService(
         BrantaApiOptions? options,
         CancellationToken cancellationToken)
     {
-        var payments = await client.GetPaymentsAsync(lookupValue, options, cancellationToken);
+        var payments = await _client.GetPaymentsAsync(lookupValue, options, cancellationToken);
 
         var keys = new Dictionary<string, string>();
         var bound = new List<Payment>();
@@ -176,12 +196,12 @@ public class BrantaService(
         CancellationToken cancellationToken)
     {
         var normalizedDestination = destinationValue.ToLowerInvariant();
-        var lookupValue = aesEncryption.Encrypt(
+        var lookupValue = _aesEncryption.Encrypt(
             normalizedDestination,
             normalizedDestination.ToNormalizedHash(),
             true);
 
-        var payments = await client.GetPaymentsAsync(lookupValue, options, cancellationToken);
+        var payments = await _client.GetPaymentsAsync(lookupValue, options, cancellationToken);
 
         var keys = new Dictionary<string, string>();
         var bound = new List<Payment>();
@@ -208,7 +228,7 @@ public class BrantaService(
             if (!destination.IsEncrypted || destination.Type != derivedType) continue;
             try
             {
-                destination.Value = aesEncryption.Decrypt(destination.Value, key);
+                destination.Value = _aesEncryption.Decrypt(destination.Value, key);
                 destination.IsEncrypted = false;
                 if (destination.Id != null && !keys.ContainsKey(destination.Id))
                 {
@@ -243,7 +263,7 @@ public class BrantaService(
             string decrypted;
             try
             {
-                decrypted = aesEncryption.Decrypt(destination.Value, encryptionKey);
+                decrypted = _aesEncryption.Decrypt(destination.Value, encryptionKey);
             }
             catch
             {
@@ -271,8 +291,8 @@ public class BrantaService(
         if (destination.EncryptedDek == null || payment.Metadata == null || payment.IsMetadataDecrypted) return;
         try
         {
-            var dek = aesEncryption.Decrypt(destination.EncryptedDek, keyUsed);
-            payment.Metadata = aesEncryption.Decrypt(payment.Metadata, dek);
+            var dek = _aesEncryption.Decrypt(destination.EncryptedDek, keyUsed);
+            payment.Metadata = _aesEncryption.Decrypt(payment.Metadata, dek);
             payment.IsMetadataDecrypted = true;
         }
         catch

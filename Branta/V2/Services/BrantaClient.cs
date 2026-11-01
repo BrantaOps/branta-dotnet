@@ -12,7 +12,7 @@ using System.Text.Json;
 
 namespace Branta.V2.Services;
 
-public class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> brantaApiOptions) : IBrantaClient
+internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> brantaApiOptions) : IBrantaClient
 {
     private readonly BrantaApiOptions? _defaultOptions = brantaApiOptions?.Value;
 

@@ -14,7 +14,7 @@ If you are implementing this SDK in a consumer project, see `README.md`. Product
 Inside `Branta/`, V2 is the only supported API surface:
 - `V2/Interfaces/IBrantaService.cs` — public entry point (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
 - `V2/Services/BrantaService.cs` — encrypt/decrypt around HTTP calls; maps GET failures to `VerifyStatus`.
-- `V2/Services/BrantaClient.cs` — raw HTTP client; do not call directly from consumer code.
+- `V2/Services/BrantaClient.cs` — internal HTTP client. Not part of the public API.
 - `V2/Extensions/` — `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point.
 - `Enums/DestinationType.cs`, `Enums/BrantaEnvironment.cs`.
 

@@ -40,11 +40,7 @@ file static class ServiceFactory
             Environment = environment,
             ApiKey = ApiKey
         });
-        return new BrantaService(
-            new BrantaClient(new SimpleHttpClientFactory(), options),
-            new AesEncryptionService(),
-            options,
-            new GuidSecretGenerator());
+        return new BrantaService(new SimpleHttpClientFactory(), options);
     }
 }
 
