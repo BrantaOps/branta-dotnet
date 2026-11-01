@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace Branta;
 
@@ -99,6 +100,7 @@ public class BrantaService : IBrantaService
         BrantaApiOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        FoldDescriptionIntoMetadata(payment);
         string? dek = null;
         if (payment.Metadata != null && payment.Destinations.Count > 0)
         {
@@ -295,10 +297,60 @@ public class BrantaService : IBrantaService
             var dek = _aesEncryption.Decrypt(destination.EncryptedDek, keyUsed);
             payment.Metadata = _aesEncryption.Decrypt(payment.Metadata, dek);
             payment.IsMetadataDecrypted = true;
+            LiftDescriptionFromMetadata(payment);
         }
         catch
         {
             // DEK decryption failed — leave metadata as-is.
+        }
+    }
+
+    private static void FoldDescriptionIntoMetadata(Payment payment)
+    {
+        if (string.IsNullOrEmpty(payment.Description)) return;
+
+        Dictionary<string, object> metadataMap;
+        if (string.IsNullOrEmpty(payment.Metadata))
+        {
+            metadataMap = [];
+        }
+        else
+        {
+            try
+            {
+                metadataMap = JsonSerializer.Deserialize<Dictionary<string, object>>(payment.Metadata) ?? [];
+            }
+            catch (JsonException)
+            {
+                metadataMap = [];
+            }
+        }
+
+        if (!metadataMap.ContainsKey("description"))
+        {
+            metadataMap["description"] = payment.Description;
+        }
+
+        payment.Metadata = JsonSerializer.Serialize(metadataMap);
+        payment.Description = null;
+    }
+
+    private static void LiftDescriptionFromMetadata(Payment payment)
+    {
+        if (string.IsNullOrEmpty(payment.Metadata)) return;
+        try
+        {
+            using var doc = JsonDocument.Parse(payment.Metadata);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("description", out var desc)
+                && desc.ValueKind == JsonValueKind.String)
+            {
+                payment.Description = desc.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // opaque ciphertext or non-JSON
         }
     }
 

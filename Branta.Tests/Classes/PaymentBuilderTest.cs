@@ -104,14 +104,37 @@ public class PaymentBuilderTests
     }
 
     [Fact]
-    public void SetDescription_SetsDescription()
+    public void SetDescription_WritesMetadataDescription()
     {
         var payment = new PaymentBuilder()
             .AddDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa")
             .SetDescription("test desc")
             .Build();
 
-        Assert.Equal("test desc", payment.Description);
+        Assert.Null(payment.Description);
+        Assert.Equal("{\"description\":\"test desc\"}", payment.Metadata);
+    }
+
+    [Fact]
+    public void Payment_Description_OmittedFromJson()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var payment = new Payment { Destinations = [], Description = "plaintext" };
+        var json = JsonSerializer.Serialize(payment, options);
+        var doc = JsonDocument.Parse(json);
+
+        Assert.False(doc.RootElement.TryGetProperty("description", out _));
+    }
+
+    [Fact]
+    public void Payment_Description_IgnoredOnDeserialize()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var payment = JsonSerializer.Deserialize<Payment>(
+            """{"destinations":[],"description":"plaintext"}""",
+            options);
+
+        Assert.Null(payment!.Description);
     }
 
     [Fact]

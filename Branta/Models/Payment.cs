@@ -4,6 +4,7 @@ namespace Branta;
 
 public class Payment
 {
+    [JsonIgnore]
     public string? Description { get; set; }
 
     public required List<Destination> Destinations { get; set; } = [];

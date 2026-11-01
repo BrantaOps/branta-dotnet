@@ -668,4 +668,57 @@ public class BrantaServiceTests
         Assert.Equal(decryptedMetadata, result.Payments![0].Metadata);
         Assert.True(result.Payments[0].IsMetadataDecrypted);
     }
+
+    [Fact]
+    public async Task AddPayment_WithLeftoverDescription_EncryptsDescriptionInMetadata()
+    {
+        const string dek = "generated-dek";
+        const string encryptedMetadata = "encrypted-metadata";
+        const string encryptedDek = "encrypted-dek-for-bitcoin";
+        _secretGeneratorMock.SetupSequence(g => g.Generate()).Returns(dek).Returns(Secret);
+        _aesEncryptionMock.Setup(e => e.Encrypt("{\"description\":\"Invoice #1\"}", dek, false)).Returns(encryptedMetadata);
+        _aesEncryptionMock.Setup(e => e.Encrypt(dek, Secret, false)).Returns(encryptedDek);
+
+        Payment? posted = null;
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted = p)
+            .ReturnsAsync(() => posted);
+
+        var payment = new PaymentBuilder()
+            .AddDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+            .Build();
+        payment.Description = "Invoice #1";
+        await _service.AddPaymentAsync(payment);
+
+        Assert.Null(posted!.Description);
+        Assert.Equal(encryptedMetadata, posted.Metadata);
+        Assert.Equal(encryptedDek, posted.Destinations[0].EncryptedDek);
+    }
+
+    [Fact]
+    public async Task Verify_DecryptedMetadata_LiftsDescription()
+    {
+        const string encryptedDek = "encrypted-dek-blob";
+        const string decryptedDek = "dek";
+        const string encryptedMetadata = "encrypted-meta";
+        const string decryptedMetadata = "{\"description\":\"Invoice #123\"}";
+        _aesEncryptionMock.Setup(e => e.Decrypt(encryptedDek, Secret)).Returns(decryptedDek);
+        _aesEncryptionMock.Setup(e => e.Decrypt(encryptedMetadata, decryptedDek)).Returns(decryptedMetadata);
+
+        var payment = new Payment
+        {
+            Metadata = encryptedMetadata,
+            Destinations = [new Destination { Value = EncryptedBitcoinAddress, Type = DestinationType.BitcoinAddress, Id = "zk1", EncryptedDek = encryptedDek }]
+        };
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        var result = await _service.VerifyAsync(BrantaBitcoinLookup());
+
+        ExpectMatch(result);
+        Assert.Equal(decryptedMetadata, result.Payments![0].Metadata);
+        Assert.Equal("Invoice #123", result.Payments[0].Description);
+    }
 }
