@@ -5,13 +5,13 @@ using DestinationKind = Branta.Enums.DestinationType;
 
 namespace Branta.V2.Classes;
 
-public class QrDestination
+internal class QrDestination
 {
     public required string Value { get; init; }
     public DestinationKind? Type { get; init; }
 }
 
-public class QRParser
+internal class QRParser
 {
     private static readonly Regex ColonToQuestion = new(@"(?<=:)[^?]*", RegexOptions.Compiled);
 

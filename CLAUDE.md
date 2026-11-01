@@ -11,12 +11,13 @@ If you are implementing this SDK in a consumer project, see `README.md`. Product
 - `Branta.Tests/` — xUnit test project mirroring the SDK namespaces.
 - `Branta.sln` — wires the two projects together.
 
-Inside `Branta/`, V2 is the only supported API surface:
-- `V2/Interfaces/IBrantaService.cs` — public entry point (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
-- `V2/Services/BrantaService.cs` — encrypt/decrypt around HTTP calls; maps GET failures to `VerifyStatus`.
-- `V2/Services/BrantaClient.cs` — internal HTTP client. Not part of the public API.
-- `V2/Extensions/` — `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point.
-- `Enums/DestinationType.cs`, `Enums/BrantaEnvironment.cs`.
+Public API:
+- `IBrantaService` / `BrantaService` (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
+- `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point.
+- `PaymentBuilder`, `Payment`, `Destination`, `Platform`, `VerifyResult` / `VerifyStatus`.
+- `BrantaApiOptions`, `BrantaEnvironment`, `DestinationType`, `BrantaPaymentException`.
+
+`BrantaClient`, `QRParser`, and AES helpers are internal. Do not re-export them.
 
 ### Build / test / release
 - Build: `dotnet build Branta.sln`

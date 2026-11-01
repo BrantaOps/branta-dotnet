@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Branta.Classes;
 
-public class AesEncryption
+internal class AesEncryption
 {
     public static string Encrypt(string value, string secret, bool deterministicNonce = false)
     {

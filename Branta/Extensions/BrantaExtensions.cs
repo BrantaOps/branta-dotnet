@@ -7,7 +7,7 @@ using System.Text;
 
 namespace Branta.Extensions;
 
-public static class BrantaExtensions
+internal static class BrantaExtensions
 {
     public static string GetUrl(this BrantaEnvironment environment)
     {

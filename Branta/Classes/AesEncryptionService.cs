@@ -2,7 +2,7 @@ using Branta.V2.Interfaces;
 
 namespace Branta.Classes;
 
-public class AesEncryptionService : IAesEncryption
+internal class AesEncryptionService : IAesEncryption
 {
     public string Encrypt(string value, string secret, bool deterministicNonce = false)
         => AesEncryption.Encrypt(value, secret, deterministicNonce);

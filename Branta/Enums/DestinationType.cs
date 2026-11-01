@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace Branta.Enums;
 
-public class DestinationTypeConverter : JsonConverter<DestinationType>
+internal class DestinationTypeConverter : JsonConverter<DestinationType>
 {
     public override DestinationType Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

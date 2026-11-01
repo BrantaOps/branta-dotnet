@@ -13,6 +13,7 @@ Port of `@branta-ops/branta` 4.0.2.
 - **BREAKING:** `PaymentBuilder.SetZk()` and `Destination.IsZk` / `Destination.ZkId`.
 - **BREAKING:** `GetPaymentsAsync` and `GetPaymentsByQrCodeAsync`. Wallets call `VerifyAsync(input)` for both QR scan and clipboard paste.
 - **BREAKING:** `BrantaClient` and `IBrantaClient` are no longer public. A GET of `branta_id` without `VerifyAsync` skips decrypt and the address bind, so a swapped QR can still show a merchant card.
+- **BREAKING:** `QRParser`, `AesEncryption`, `AesEncryptionService`, `IAesEncryption`, `GuidSecretGenerator`, `ISecretGenerator`, `BrantaExtensions`, and `UrlAttribute` are no longer public. Call `IBrantaService`.
 - **BREAKING:** `verify()` returns `{ Status, VerifyUrl }` with `Status` of `Match`, `Unknown`, `Tampered`, or `Incomplete`. A swapped address is `Tampered`, not a thrown exception. `Payments` is present only on `Match`. `PaymentsResult` and `BrantaPaymentExceptionReason` are gone.
 - **BREAKING:** `DestinationType.Bolt12`, `LnUrl`, `TetherAddress`, and `LnAddress`. `DestinationType` is the set of types `AddPaymentAsync` accepts: bitcoin, bolt11, Ark, and silent payments.
 - **BREAKING:** `BrantaClientOptions` is `BrantaApiOptions`. `BaseUrl` is `Environment`; `BrantaServerBaseUrl` is `BrantaEnvironment`; `DefaultApiKey` is `ApiKey`.
