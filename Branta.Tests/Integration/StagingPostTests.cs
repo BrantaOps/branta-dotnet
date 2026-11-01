@@ -1,6 +1,6 @@
 using Branta;
 
-namespace Branta.Tests.V2.Integration;
+namespace Branta.Tests.Integration;
 
 public class StagingPostTests
 {

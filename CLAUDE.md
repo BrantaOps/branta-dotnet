@@ -8,12 +8,12 @@ If you are implementing this SDK in a consumer project, see `README.md`. Product
 
 ### Solution layout
 - `Branta/` — the SDK that ships as the `Branta` NuGet package. `Branta.csproj` targets `net8.0;net10.0`.
-- `Branta.Tests/` — xUnit test project mirroring the SDK namespaces.
+- `Branta.Tests/` — xUnit test project mirroring the SDK folders (`Services`, `Classes`, `Integration`).
 - `Branta.sln` — wires the two projects together.
 
 Public API lives in `namespace Branta`:
-- `IBrantaService` / `BrantaService` (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`).
-- `PaymentBuilder`, `Payment`, `Destination`, `Platform`, `VerifyResult` / `VerifyStatus`.
+- `IBrantaService` / `BrantaService` (`VerifyAsync`, `AddPaymentAsync`, `IsApiKeyValidAsync`). Construct with `new BrantaService(BrantaApiOptions)` or DI.
+- `PaymentBuilder`, `Payment`, `Destination`, `Platform`, `VerifyResult` / `VerifyStatus`, `AddPaymentResult`.
 - `BrantaApiOptions`, `BrantaEnvironment`, `DestinationType`, `BrantaPaymentException`.
 
 `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point in `Microsoft.Extensions.DependencyInjection`.
@@ -35,4 +35,4 @@ Public API lives in `namespace Branta`:
 
 ### Conventions
 - `BrantaApiOptions` can be passed per-call to override DI-registered defaults.
-- Tests mirror SDK folders: `Branta.Tests/V2/Services/...` mirrors `Branta/V2/Services/...`. Public types are `namespace Branta` regardless of folder.
+- Tests mirror SDK folders: `Branta.Tests/Services/...` mirrors `Branta/Services/...`. Public types are `namespace Branta` regardless of folder. Guardrail HTTP paths stay `/v2/...`.

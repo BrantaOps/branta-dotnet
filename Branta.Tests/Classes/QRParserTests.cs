@@ -1,6 +1,6 @@
 using Branta;
 
-namespace Branta.Tests.V2.Classes;
+namespace Branta.Tests.Classes;
 
 public class QRParserTests
 {

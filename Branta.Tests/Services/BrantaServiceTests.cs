@@ -2,7 +2,7 @@ using Branta;
 using Microsoft.Extensions.Options;
 using Moq;
 
-namespace Branta.Tests.V2.Services;
+namespace Branta.Tests.Services;
 
 public class BrantaServiceTests
 {

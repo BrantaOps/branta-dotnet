@@ -14,16 +14,11 @@ dotnet add package Branta
 
 ```csharp
 using Branta;
-using Microsoft.Extensions.DependencyInjection;
 
-var services = new ServiceCollection()
-    .ConfigureBrantaServices(new BrantaApiOptions
-    {
-        Environment = BrantaEnvironment.Production // Staging everywhere else
-    })
-    .BuildServiceProvider();
-
-var service = services.GetRequiredService<IBrantaService>();
+var service = new BrantaService(new BrantaApiOptions
+{
+    Environment = BrantaEnvironment.Production // Staging everywhere else
+});
 
 var result = await service.VerifyAsync(input); // scanned QR or pasted text
 
@@ -52,17 +47,12 @@ A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 
 ```csharp
 using Branta;
-using Microsoft.Extensions.DependencyInjection;
 
-var services = new ServiceCollection()
-    .ConfigureBrantaServices(new BrantaApiOptions
-    {
-        Environment = BrantaEnvironment.Production,
-        ApiKey = "<api-key>",
-    })
-    .BuildServiceProvider();
-
-var service = services.GetRequiredService<IBrantaService>();
+var service = new BrantaService(new BrantaApiOptions
+{
+    Environment = BrantaEnvironment.Production,
+    ApiKey = "<api-key>",
+});
 
 var payment = new PaymentBuilder()
     .SetDescription("Invoice #12345")
@@ -70,11 +60,14 @@ var payment = new PaymentBuilder()
     .SetTtl(600) // seconds
     .Build();
 
-var (_, secret, verifyUrl) = await service.AddPaymentAsync(payment);
+var posted = await service.AddPaymentAsync(payment);
+// posted.Secret, posted.VerifyUrl, posted.Payment
 ```
 
 Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR.
 
 Parent platforms: prefer a shared API key and `SetChildPlatform()`. Per-client HMAC (`HmacSecret` + per-call `ApiKey`) is still supported.
+
+ASP.NET: `services.ConfigureBrantaServices(options)` registers `IBrantaService`.
 
 [Changelog](CHANGELOG.md)

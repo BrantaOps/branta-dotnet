@@ -1,7 +1,7 @@
 using Branta;
 using System.Text.Json;
 
-namespace Branta.Tests.V2.Classes;
+namespace Branta.Tests.Classes;
 
 public class PaymentBuilderTests
 {

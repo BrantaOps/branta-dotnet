@@ -22,9 +22,12 @@ Port of `@branta-ops/branta` 4.0.2.
 - **BREAKING:** `Payment.GetDefaultValue()`.
 - **BREAKING:** `Destination.ZkId` is `Destination.Id`. Guardrail still receives `zk_id`.
 - **BREAKING:** Public types live in `namespace Branta`. `ConfigureBrantaServices` is in `Microsoft.Extensions.DependencyInjection`.
+- **BREAKING:** `CreatePaymentBuilder()` is gone. Use `new PaymentBuilder()`.
+- **BREAKING:** `AddPaymentAsync` returns `AddPaymentResult` (`Payment`, `Secret`, `VerifyUrl`) instead of a tuple.
 
 ### Added
 - `VerifyAsync` status `Incomplete` when the lookup does not finish (5xx, 429, or no network). A 404 is still `Unknown`.
+- `new BrantaService(BrantaApiOptions)` for apps that are not using DI. `ConfigureBrantaServices` still registers `IBrantaService`.
 
 ### Fixed
 - `VerifyAsync` of a `bitcoin:` URI with `branta_id` / `branta_secret` and no payable destination is `Unknown`. Finding the record is not a match.

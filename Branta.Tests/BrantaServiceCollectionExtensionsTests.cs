@@ -14,4 +14,11 @@ public class BrantaServiceCollectionExtensionsTests
 
         Assert.NotNull(services.GetRequiredService<IBrantaService>());
     }
+
+    [Fact]
+    public void BrantaService_CanBeConstructedFromOptions()
+    {
+        var service = new BrantaService(new BrantaApiOptions { Environment = BrantaEnvironment.Localhost });
+        Assert.NotNull(service);
+    }
 }

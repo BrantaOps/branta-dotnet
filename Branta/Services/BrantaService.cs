@@ -9,6 +9,16 @@ public class BrantaService : IBrantaService
     private readonly BrantaApiOptions _defaultOptions;
     private readonly ISecretGenerator _secretGenerator;
 
+    public BrantaService(BrantaApiOptions options)
+        : this(options, new DefaultHttpClientFactory())
+    {
+    }
+
+    public BrantaService(BrantaApiOptions options, IHttpClientFactory httpClientFactory)
+        : this(httpClientFactory, Options.Create(options))
+    {
+    }
+
     public BrantaService(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> defaultOptions)
         : this(
             new BrantaClient(httpClientFactory, defaultOptions),
@@ -29,8 +39,6 @@ public class BrantaService : IBrantaService
         _defaultOptions = defaultOptions.Value;
         _secretGenerator = secretGenerator;
     }
-
-    public PaymentBuilder CreatePaymentBuilder() => new();
 
     public async Task<VerifyResult> VerifyAsync(string input, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -86,7 +94,7 @@ public class BrantaService : IBrantaService
         }
     }
 
-    public async Task<(Payment Payment, string Secret, string VerifyUrl)> AddPaymentAsync(
+    public async Task<AddPaymentResult> AddPaymentAsync(
         Payment payment,
         BrantaApiOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -150,7 +158,7 @@ public class BrantaService : IBrantaService
         var primaryValue = payment.Destinations.Count > 0 ? payment.Destinations[0].Value : "";
         var verifyUrl = BuildVerifyUrl(options, primaryValue, keys);
 
-        return (responsePayment, secret, verifyUrl);
+        return new AddPaymentResult(responsePayment, secret, verifyUrl);
     }
 
     public Task<bool> IsApiKeyValidAsync(BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
@@ -341,5 +349,10 @@ public class BrantaService : IBrantaService
         if (IsBech32(a) && IsBech32(b))
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         return a == b;
+    }
+
+    private sealed class DefaultHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new();
     }
 }

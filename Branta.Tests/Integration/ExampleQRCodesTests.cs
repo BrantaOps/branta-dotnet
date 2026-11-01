@@ -1,7 +1,6 @@
 using Branta;
-using Microsoft.Extensions.Options;
 
-namespace Branta.Tests.V2.Integration;
+namespace Branta.Tests.Integration;
 
 internal sealed class LiveFactAttribute : FactAttribute
 {
@@ -42,12 +41,9 @@ internal static class ServiceFactory
 
     public static IBrantaService Create(BrantaEnvironment environment)
     {
-        var options = Options.Create(new BrantaApiOptions
-        {
-            Environment = environment,
-            ApiKey = ApiKey
-        });
-        return new BrantaService(new SimpleHttpClientFactory(), options);
+        return new BrantaService(
+            new BrantaApiOptions { Environment = environment, ApiKey = ApiKey },
+            new SimpleHttpClientFactory());
     }
 }
 
