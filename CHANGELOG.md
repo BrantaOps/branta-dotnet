@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.0.2] - 2026-11-01
 
 ### Changed
 - `SetDescription` writes encrypted `metadata.description`. The SDK does not POST or GET Guardrail's plaintext `description` field. After metadata decrypt, `Payment.Description` is lifted from `metadata.description` for wallets.
