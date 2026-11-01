@@ -220,5 +220,38 @@ public class QRParserTests
         var pay = new QRParser("bitcoin:bc1qmerchant?pay=bitcoin:bc1qother");
         Assert.True(pay.HasUnverifiableInstruction);
         Assert.Equal(new[] { "bc1qmerchant" }, pay.Destinations.Select(d => d.Value));
+
+        var bolt12 = new QRParser("bitcoin:bc1qmerchant?bolt12=lno1qqexample");
+        Assert.True(bolt12.HasUnverifiableInstruction);
+        Assert.Equal(new[] { "bc1qmerchant" }, bolt12.Destinations.Select(d => d.Value));
+    }
+
+    [Fact]
+    public void QRParser_LightningLnurlUri_IsUnverifiable()
+    {
+        var result = new QRParser("lightning:LNURL1DP68GURN8GHJ");
+
+        Assert.Equal("LNURL1DP68GURN8GHJ", result.Destination);
+        Assert.Null(result.DestinationType);
+        Assert.True(result.HasUnverifiableInstruction);
+    }
+
+    [Fact]
+    public void QRParser_TabInsideAddress_UsesAddressWithoutTab()
+    {
+        var result = new QRParser("bitcoin:1attac\tkeraddr?branta_id=ID1&branta_secret=SEC1");
+
+        Assert.Equal("1attackeraddr", result.Destination);
+        Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
+        Assert.True(result.HasBrantaParams());
+    }
+
+    [Fact]
+    public void QRParser_TabInsideLightningScheme_StillTypesBolt11()
+    {
+        var result = new QRParser("lightnin\tg:lnbc100n1ptest");
+
+        Assert.Equal("lnbc100n1ptest", result.Destination);
+        Assert.Equal(DestinationType.Bolt11, result.DestinationType);
     }
 }

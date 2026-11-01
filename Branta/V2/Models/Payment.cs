@@ -9,8 +9,10 @@ public class Payment
     public required List<Destination> Destinations { get; set; } = [];
 
     [JsonPropertyName("created_at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public DateTime CreatedDate { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int TTL { get; set; }
 
     public string? Metadata { get; set; }

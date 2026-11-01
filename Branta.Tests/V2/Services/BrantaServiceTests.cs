@@ -269,8 +269,39 @@ public class BrantaServiceTests
             .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([EncryptedBitcoinPayment()]);
 
-        var qr = $"bitcoin:{BitcoinAddress}?lightning={Bolt11Invoice}&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        var qr = $"bitcoin:{BitcoinAddress}?lightning=lnbc1attacker&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
         ExpectUnknown(await _service.VerifyAsync(qr));
+    }
+
+    [Fact]
+    public async Task Verify_AttackerArkLeg_ReturnsUnknown()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([EncryptedBitcoinPayment()]);
+
+        var qr = $"bitcoin:{BitcoinAddress}?ark=ark1attacker&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}";
+        ExpectUnknown(await _service.VerifyAsync(qr));
+    }
+
+    [Fact]
+    public async Task Verify_Bip321BcSwap_IsTampered()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([EncryptedBitcoinPayment()]);
+
+        ExpectTampered(await _service.VerifyAsync($"bitcoin:?bc=bc1qother&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}"));
+    }
+
+    [Fact]
+    public async Task Verify_Bip321BcMatch_IsMatch()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBitcoinAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([EncryptedBitcoinPayment()]);
+
+        ExpectMatch(await _service.VerifyAsync($"bitcoin:?bc={BitcoinAddress}&branta_id={EncryptedBitcoinAddress}&branta_secret={Secret}"));
     }
 
     [Fact]

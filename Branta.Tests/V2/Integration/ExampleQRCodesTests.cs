@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace Branta.Tests.V2.Integration;
 
-file sealed class LiveFactAttribute : FactAttribute
+internal sealed class LiveFactAttribute : FactAttribute
 {
     public LiveFactAttribute()
     {
@@ -16,7 +16,18 @@ file sealed class LiveFactAttribute : FactAttribute
     }
 }
 
-file sealed class SimpleHttpClientFactory : IHttpClientFactory
+internal sealed class LivePostFactAttribute : FactAttribute
+{
+    public LivePostFactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable("BRANTA_RUN_INTEGRATION") != "1")
+            Skip = "Live lookups skipped unless BRANTA_RUN_INTEGRATION=1";
+        else if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BRANTA_API_KEY")))
+            Skip = "Live POST skipped unless BRANTA_API_KEY is set";
+    }
+}
+
+internal sealed class SimpleHttpClientFactory : IHttpClientFactory
 {
     public HttpClient CreateClient(string name)
     {
@@ -28,7 +39,7 @@ file sealed class SimpleHttpClientFactory : IHttpClientFactory
     }
 }
 
-file static class ServiceFactory
+internal static class ServiceFactory
 {
     private static readonly string ApiKey =
         Environment.GetEnvironmentVariable("BRANTA_API_KEY") ?? string.Empty;

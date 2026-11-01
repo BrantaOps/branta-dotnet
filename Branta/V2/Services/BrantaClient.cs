@@ -9,6 +9,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Branta.V2.Services;
 
@@ -18,7 +19,8 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
 
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)

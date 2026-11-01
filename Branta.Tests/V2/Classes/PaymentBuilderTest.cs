@@ -84,6 +84,28 @@ public class PaymentBuilderTests
     }
 
     [Fact]
+    public void Destination_UnknownType_IsOmitted()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var destination = JsonSerializer.Deserialize<Destination>(
+            """{"value":"addr","type":"not_a_destination_type","zk":true}""", options);
+
+        Assert.Null(destination!.Type);
+    }
+
+    [Fact]
+    public void Payment_DefaultTtlAndCreatedDate_AreOmittedFromJson()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+        var payment = new Payment { Destinations = [] };
+        var json = JsonSerializer.Serialize(payment, options);
+        var doc = JsonDocument.Parse(json);
+
+        Assert.False(doc.RootElement.TryGetProperty("ttl", out _));
+        Assert.False(doc.RootElement.TryGetProperty("created_at", out _));
+    }
+
+    [Fact]
     public void SetDescription_SetsDescription()
     {
         var payment = new PaymentBuilder()

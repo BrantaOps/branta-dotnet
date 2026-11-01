@@ -142,6 +142,18 @@ public class BrantaClientTest
     }
 
     [Fact]
+    public async Task GetPaymentsAsync_UnknownDestinationType_DoesNotThrow()
+    {
+        var json = """[{"destinations":[{"value":"addr","type":"not_a_destination_type","zk":true}]}]""";
+        var client = CreateClient(json);
+
+        var payments = await client.GetPaymentsAsync("value");
+
+        Assert.Single(payments);
+        Assert.Null(payments[0].Destinations[0].Type);
+    }
+
+    [Fact]
     public async Task GetPaymentsAsync_404_ReturnsEmptyList()
     {
         var client = CreateClient("not found", HttpStatusCode.NotFound);

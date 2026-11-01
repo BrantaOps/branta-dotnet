@@ -20,6 +20,7 @@ public class Destination
     [JsonIgnore]
     public bool IsEncrypted { get; set; } = true;
 
+    [JsonConverter(typeof(NullableDestinationTypeConverter))]
     public DestinationType? Type { get; set; }
 
     [JsonPropertyName("zk_id")]
