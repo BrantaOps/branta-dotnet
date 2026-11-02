@@ -536,8 +536,10 @@ public class BrantaServiceTests
         var payment = new PaymentBuilder().AddDestination(BitcoinAddress).Build();
         await _service.AddPaymentAsync(payment);
 
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
         Assert.Equal(DestinationType.BitcoinAddress, posted!.Destinations[0].Type);
         Assert.Equal(EncryptedBitcoinAddress, posted.Destinations[0].Value);
+        Assert.NotSame(payment, posted);
         _aesEncryptionMock.Verify(e => e.Encrypt(BitcoinAddress, Secret, false), Times.Once);
     }
 
@@ -553,6 +555,7 @@ public class BrantaServiceTests
         var payment = new PaymentBuilder().AddDestination(Bolt11Invoice).Build();
         await _service.AddPaymentAsync(payment);
 
+        Assert.Equal(Bolt11Invoice, payment.Destinations[0].Value);
         Assert.Equal(EncryptedBolt11, posted!.Destinations[0].Value);
         _aesEncryptionMock.Verify(e => e.Encrypt(Bolt11Invoice.ToLowerInvariant(), Bolt11Hash, true), Times.Once);
     }
@@ -576,6 +579,7 @@ public class BrantaServiceTests
         var payment = new PaymentBuilder().AddDestination("not-a-known-destination").Build();
 
         await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.AddPaymentAsync(payment));
+        Assert.Equal("not-a-known-destination", payment.Destinations[0].Value);
         _clientMock.Verify(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -594,6 +598,75 @@ public class BrantaServiceTests
         var result = await _service.AddPaymentAsync(payment);
 
         Assert.Equal($"http://localhost:3000/v2/verify/{EncryptedBitcoinAddress}#k-zk1={Secret}", result.VerifyUrl);
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
+    }
+
+    [Fact]
+    public async Task AddPayment_RetryAfterPostFailure_EncryptsTheOriginalAddress()
+    {
+        var posted = new List<Payment>();
+        _secretGeneratorMock.SetupSequence(g => g.Generate()).Returns(Secret).Returns("retry-secret");
+        _aesEncryptionMock.Setup(e => e.Encrypt(BitcoinAddress, "retry-secret", false)).Returns("encrypted-on-retry");
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted.Add(p))
+            .Returns<Payment, BrantaApiOptions?, CancellationToken>((_, _, _) =>
+                posted.Count == 1
+                    ? Task.FromException<Payment?>(new BrantaPaymentException("500"))
+                    : Task.FromResult<Payment?>(posted[^1]));
+
+        var payment = new PaymentBuilder().AddDestination(BitcoinAddress, DestinationType.BitcoinAddress).Build();
+
+        await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.AddPaymentAsync(payment));
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
+
+        var result = await _service.AddPaymentAsync(payment);
+
+        Assert.Equal("retry-secret", result.Secret);
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
+        Assert.Equal(EncryptedBitcoinAddress, posted[0].Destinations[0].Value);
+        Assert.Equal("encrypted-on-retry", posted[1].Destinations[0].Value);
+        _aesEncryptionMock.Verify(e => e.Encrypt(BitcoinAddress, "retry-secret", false), Times.Once);
+        _aesEncryptionMock.Verify(e => e.Encrypt(EncryptedBitcoinAddress, "retry-secret", false), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddPayment_RetryAfterPostFailure_Bolt11StillEncryptsTheInvoice()
+    {
+        var posted = new List<Payment>();
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted.Add(p))
+            .Returns<Payment, BrantaApiOptions?, CancellationToken>((_, _, _) =>
+                posted.Count == 1
+                    ? Task.FromException<Payment?>(new BrantaPaymentException("500"))
+                    : Task.FromResult<Payment?>(posted[^1]));
+
+        var payment = new PaymentBuilder().AddDestination(Bolt11Invoice, DestinationType.Bolt11).Build();
+
+        await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.AddPaymentAsync(payment));
+        Assert.Equal(Bolt11Invoice, payment.Destinations[0].Value);
+
+        await _service.AddPaymentAsync(payment);
+
+        Assert.Equal(Bolt11Invoice, payment.Destinations[0].Value);
+        Assert.Equal(EncryptedBolt11, posted[0].Destinations[0].Value);
+        Assert.Equal(EncryptedBolt11, posted[1].Destinations[0].Value);
+        _aesEncryptionMock.Verify(e => e.Encrypt(Bolt11Invoice.ToLowerInvariant(), Bolt11Hash, true), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task AddPayment_EmptyResponse_ThrowsAndLeavesTheCallerUnchanged()
+    {
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Payment?)null);
+
+        var payment = new PaymentBuilder().AddDestination(BitcoinAddress, DestinationType.BitcoinAddress).Build();
+
+        var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => _service.AddPaymentAsync(payment));
+        Assert.Equal("No payment returned from server.", ex.Message);
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
     }
 
     [Fact]
@@ -661,8 +734,11 @@ public class BrantaServiceTests
             .AddDestination(BitcoinAddress, DestinationType.BitcoinAddress)
             .AddMetadata("order", "1")
             .Build();
+        var callerMetadata = payment.Metadata;
         await _service.AddPaymentAsync(payment);
 
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
+        Assert.Equal(callerMetadata, payment.Metadata);
         Assert.Equal(encryptedMetadata, posted!.Metadata);
         Assert.Equal(encryptedDek, posted.Destinations[0].EncryptedDek);
     }
@@ -715,6 +791,8 @@ public class BrantaServiceTests
         payment.Description = "Invoice #1";
         await _service.AddPaymentAsync(payment);
 
+        Assert.Equal("Invoice #1", payment.Description);
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
         Assert.Null(posted!.Description);
         Assert.Equal(encryptedMetadata, posted.Metadata);
         Assert.Equal(encryptedDek, posted.Destinations[0].EncryptedDek);
