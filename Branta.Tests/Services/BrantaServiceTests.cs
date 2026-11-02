@@ -18,7 +18,6 @@ public class BrantaServiceTests
 
     private const string Bolt11Invoice = "lnbc100n1ptest";
     private const string EncryptedBolt11 = "encrypted-bolt11-value";
-    private const string DecryptedBolt11 = "lnbc100n1pdecrypted";
     private static readonly string Bolt11Hash = Bolt11Invoice.ToNormalizedHash();
 
     private static Payment EncryptedBitcoinPayment() => new()
@@ -59,7 +58,7 @@ public class BrantaServiceTests
         _service = new BrantaService(_clientMock.Object, _aesEncryptionMock.Object, Options.Create(_defaultOptions), _secretGeneratorMock.Object);
 
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBitcoinAddress, Secret)).Returns(BitcoinAddress);
-        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBolt11, Bolt11Hash)).Returns(DecryptedBolt11);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedBolt11, Bolt11Hash)).Returns(Bolt11Invoice);
         _aesEncryptionMock.Setup(e => e.Encrypt(BitcoinAddress, Secret, false)).Returns(EncryptedBitcoinAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(Bolt11Invoice.ToLowerInvariant(), Bolt11Hash, true)).Returns(EncryptedBolt11);
     }
@@ -123,7 +122,7 @@ public class BrantaServiceTests
 
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
         ExpectMatch(result);
-        Assert.Equal(DecryptedBolt11, result.Payments![0].Destinations[0].Value);
+        Assert.Equal(Bolt11Invoice, result.Payments![0].Destinations[0].Value);
     }
 
     [Fact]
@@ -133,9 +132,34 @@ public class BrantaServiceTests
             .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([EncryptedBolt11Payment()]);
 
-        await _service.VerifyAsync($"lightning:{Bolt11Invoice.ToUpperInvariant()}");
+        var result = await _service.VerifyAsync($"lightning:{Bolt11Invoice.ToUpperInvariant()}");
 
         _clientMock.Verify(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
+        ExpectMatch(result);
+        Assert.Equal(Bolt11Invoice, result.Payments![0].Destinations[0].Value);
+    }
+
+    [Fact]
+    public async Task Verify_Bolt11DecryptingToADifferentInvoice_IsTampered()
+    {
+        _aesEncryptionMock.Setup(e => e.Decrypt("encrypted-attacker-invoice", Bolt11Hash)).Returns("lnbc1attacker");
+        var payment = new Payment
+        {
+            Destinations =
+            [
+                new Destination { Value = "copied-lookup", Type = DestinationType.BitcoinAddress, Id = "btc" },
+                new Destination { Value = "encrypted-attacker-invoice", Type = DestinationType.Bolt11, Id = "bolt" }
+            ]
+        };
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedBolt11, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([payment]);
+
+        var result = await _service.VerifyAsync($"lightning:{Bolt11Invoice}");
+
+        ExpectTampered(result);
+        Assert.Equal($"http://localhost:3000/v2/verify/{Bolt11Invoice}", result.VerifyUrl);
+        Assert.DoesNotContain("#", result.VerifyUrl);
     }
 
     [Fact]
@@ -180,7 +204,7 @@ public class BrantaServiceTests
 
         ExpectMatch(result);
         Assert.Equal(BitcoinAddress, result.Payments![0].Destinations[0].Value);
-        Assert.Equal(DecryptedBolt11, result.Payments[0].Destinations[1].Value);
+        Assert.Equal(Bolt11Invoice, result.Payments[0].Destinations[1].Value);
     }
 
     [Fact]
@@ -416,7 +440,7 @@ public class BrantaServiceTests
         var result = await _service.VerifyAsync(Bolt11Invoice);
 
         ExpectMatch(result);
-        Assert.Equal(DecryptedBolt11, result.Payments![0].Destinations[0].Value);
+        Assert.Equal(Bolt11Invoice, result.Payments![0].Destinations[0].Value);
         _aesEncryptionMock.Verify(e => e.Decrypt(EncryptedBolt11, Bolt11Hash), Times.Once);
     }
 

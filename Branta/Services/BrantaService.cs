@@ -229,21 +229,30 @@ public class BrantaService : IBrantaService
         foreach (var destination in payment.Destinations)
         {
             if (!destination.IsEncrypted || destination.Type != derivedType) continue;
+            string decrypted;
             try
             {
-                destination.Value = _aesEncryption.Decrypt(destination.Value, key);
-                destination.IsEncrypted = false;
-                if (destination.Id != null && !keys.ContainsKey(destination.Id))
-                {
-                    keys[destination.Id] = key;
-                }
-                TryDecryptMetadata(payment, destination, key);
-                bound = true;
+                decrypted = _aesEncryption.Decrypt(destination.Value, key);
             }
             catch
             {
                 // Key didn't match this destination — leave it encrypted.
+                continue;
             }
+
+            if (!string.Equals(decrypted, plainValue, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new TamperedError();
+            }
+
+            destination.Value = decrypted;
+            destination.IsEncrypted = false;
+            if (destination.Id != null && !keys.ContainsKey(destination.Id))
+            {
+                keys[destination.Id] = key;
+            }
+            TryDecryptMetadata(payment, destination, key);
+            bound = true;
         }
         return bound;
     }
