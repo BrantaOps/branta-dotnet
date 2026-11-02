@@ -100,18 +100,20 @@ public class BrantaService : IBrantaService
         BrantaApiOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        FoldDescriptionIntoMetadata(payment);
+        // Encrypt and post this copy. A failed post must leave the caller's Payment reusable.
+        var submitted = CopyPayment(payment);
+        FoldDescriptionIntoMetadata(submitted);
         string? dek = null;
-        if (payment.Metadata != null && payment.Destinations.Count > 0)
+        if (submitted.Metadata != null && submitted.Destinations.Count > 0)
         {
             dek = _secretGenerator.Generate();
-            payment.Metadata = _aesEncryption.Encrypt(payment.Metadata, dek, false);
+            submitted.Metadata = _aesEncryption.Encrypt(submitted.Metadata, dek, false);
         }
 
         var secret = _secretGenerator.Generate();
         var encryptedToKey = new Dictionary<string, string>();
 
-        foreach (var destination in payment.Destinations)
+        foreach (var destination in submitted.Destinations)
         {
             destination.Id ??= Guid.NewGuid().ToString();
 
@@ -145,7 +147,7 @@ public class BrantaService : IBrantaService
             }
         }
 
-        var responsePayment = await _client.PostPaymentAsync(payment, options, cancellationToken)
+        var responsePayment = await _client.PostPaymentAsync(submitted, options, cancellationToken)
             ?? throw new BrantaPaymentException("No payment returned from server.");
 
         var keys = new Dictionary<string, string>();
@@ -157,11 +159,46 @@ public class BrantaService : IBrantaService
             }
         }
 
-        var primaryValue = payment.Destinations.Count > 0 ? payment.Destinations[0].Value : "";
+        var primaryValue = submitted.Destinations.Count > 0 ? submitted.Destinations[0].Value : "";
         var verifyUrl = BuildVerifyUrl(options, primaryValue, keys);
 
         return new AddPaymentResult(responsePayment, secret, verifyUrl);
     }
+
+    private static Payment CopyPayment(Payment payment) => new()
+    {
+        Description = payment.Description,
+        Destinations = payment.Destinations.Select(CopyDestination).ToList(),
+        CreatedAt = payment.CreatedAt,
+        Ttl = payment.Ttl,
+        Metadata = payment.Metadata,
+        Platform = payment.Platform,
+        PlatformLogoUrl = payment.PlatformLogoUrl,
+        PlatformLogoLightUrl = payment.PlatformLogoLightUrl,
+        ParentPlatform = CopyPlatform(payment.ParentPlatform),
+        ChildPlatform = CopyPlatform(payment.ChildPlatform),
+        BtcPayServerPluginVersion = payment.BtcPayServerPluginVersion,
+        IsMetadataDecrypted = payment.IsMetadataDecrypted,
+    };
+
+    private static Destination CopyDestination(Destination destination) => new()
+    {
+        Value = destination.Value,
+        IsPrimary = destination.IsPrimary,
+        IsEncrypted = destination.IsEncrypted,
+        Type = destination.Type,
+        Id = destination.Id,
+        EncryptedDek = destination.EncryptedDek,
+    };
+
+    private static Platform? CopyPlatform(Platform? platform) => platform == null
+        ? null
+        : new Platform
+        {
+            Name = platform.Name,
+            LogoUrl = platform.LogoUrl,
+            LogoLightUrl = platform.LogoLightUrl,
+        };
 
     public Task<bool> IsApiKeyValidAsync(BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
         => _client.IsApiKeyValidAsync(options, cancellationToken);
@@ -229,21 +266,30 @@ public class BrantaService : IBrantaService
         foreach (var destination in payment.Destinations)
         {
             if (!destination.IsEncrypted || destination.Type != derivedType) continue;
+            string decrypted;
             try
             {
-                destination.Value = _aesEncryption.Decrypt(destination.Value, key);
-                destination.IsEncrypted = false;
-                if (destination.Id != null && !keys.ContainsKey(destination.Id))
-                {
-                    keys[destination.Id] = key;
-                }
-                TryDecryptMetadata(payment, destination, key);
-                bound = true;
+                decrypted = _aesEncryption.Decrypt(destination.Value, key);
             }
             catch
             {
                 // Key didn't match this destination — leave it encrypted.
+                continue;
             }
+
+            if (!string.Equals(decrypted, plainValue, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new TamperedError();
+            }
+
+            destination.Value = decrypted;
+            destination.IsEncrypted = false;
+            if (destination.Id != null && !keys.ContainsKey(destination.Id))
+            {
+                keys[destination.Id] = key;
+            }
+            TryDecryptMetadata(payment, destination, key);
+            bound = true;
         }
         return bound;
     }
