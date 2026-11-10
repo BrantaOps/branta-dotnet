@@ -71,6 +71,7 @@ public class BrantaService : IBrantaService
                     parser.OnChainEncryptionSecret,
                     additionalValues,
                     expectedOnChainAddress,
+                    ExpectedSecretKeyTypes(parser),
                     options,
                     cancellationToken);
                 return ToVerifyResult(payments, verifyUrl);
@@ -120,7 +121,7 @@ public class BrantaService : IBrantaService
             var type = destination.Type ?? QRParser.DetectDestinationType(destination.Value);
             if (destination.Type == null && type != null) destination.Type = type;
 
-            if (type == DestinationType.BitcoinAddress)
+            if (type != null && DestinationTypes.IsSecretKeyAddress(type.Value))
             {
                 destination.Value = _aesEncryption.Encrypt(destination.Value, secret, _secretGenerator.DeterministicNonce);
                 encryptedToKey[destination.Value] = secret;
@@ -208,6 +209,7 @@ public class BrantaService : IBrantaService
         string? encryptionKey,
         List<string> additionalHashValues,
         string? expectedOnChainAddress,
+        HashSet<DestinationType>? expectedOnChainTypes,
         BrantaApiOptions? options,
         CancellationToken cancellationToken)
     {
@@ -217,7 +219,12 @@ public class BrantaService : IBrantaService
         var bound = new List<Payment>();
         foreach (var payment in payments)
         {
-            var onChainBound = DecryptDestinations(payment, encryptionKey, keys, expectedOnChainAddress);
+            var onChainBound = DecryptDestinations(
+                payment,
+                encryptionKey,
+                keys,
+                expectedOnChainAddress,
+                expectedOnChainTypes);
             var hashesBound = true;
             foreach (var value in additionalHashValues)
             {
@@ -298,15 +305,21 @@ public class BrantaService : IBrantaService
         Payment payment,
         string? encryptionKey,
         Dictionary<string, string> keys,
-        string? expectedOnChainAddress)
+        string? expectedOnChainAddress,
+        HashSet<DestinationType>? expectedOnChainTypes)
     {
         var onChainBound = expectedOnChainAddress == null;
+        var decryptedExpectedRail = false;
         foreach (var destination in payment.Destinations)
         {
             if (!destination.IsEncrypted) continue;
             destination.IsEncrypted = true;
 
-            if (destination.Type != DestinationType.BitcoinAddress) continue;
+            if (destination.Type == null || !DestinationTypes.IsSecretKeyAddress(destination.Type.Value))
+                continue;
+            // Outside this QR's rail family (e.g. bitcoin when scanning pol:) — leave encrypted.
+            if (expectedOnChainTypes != null && !expectedOnChainTypes.Contains(destination.Type.Value))
+                continue;
             if (encryptionKey == null) continue;
 
             string decrypted;
@@ -316,12 +329,15 @@ public class BrantaService : IBrantaService
             }
             catch
             {
+                // Key didn't match this destination — leave it encrypted.
                 continue;
             }
 
+            decryptedExpectedRail = true;
+            // Match-if-any within the family: a sibling rail with a different address stays encrypted.
             if (expectedOnChainAddress != null && !AddressesMatch(decrypted, expectedOnChainAddress))
             {
-                throw new TamperedError();
+                continue;
             }
             if (expectedOnChainAddress != null) onChainBound = true;
             destination.Value = decrypted;
@@ -331,6 +347,11 @@ public class BrantaService : IBrantaService
                 keys[destination.Id] = encryptionKey;
             }
             TryDecryptMetadata(payment, destination, encryptionKey);
+        }
+        // Tampered only when a family rail decrypted and none matched the scanned address.
+        if (expectedOnChainAddress != null && !onChainBound && decryptedExpectedRail)
+        {
+            throw new TamperedError();
         }
         return onChainBound;
     }
@@ -403,10 +424,19 @@ public class BrantaService : IBrantaService
     private VerifyResult Unknown(BrantaApiOptions? options, string lookup)
         => new() { Status = VerifyStatus.Unknown, VerifyUrl = BuildVerifyUrl(options, lookup) };
 
+    private static IReadOnlyList<Destination> MatchedDestinationsFrom(List<Payment> payments) =>
+        payments.SelectMany(payment => payment.Destinations.Where(d => !d.IsEncrypted)).ToList();
+
     private static VerifyResult ToVerifyResult(List<Payment> payments, string verifyUrl)
         => payments.Count == 0
             ? new VerifyResult { Status = VerifyStatus.Unknown, VerifyUrl = verifyUrl }
-            : new VerifyResult { Status = VerifyStatus.Match, Payments = payments, VerifyUrl = verifyUrl };
+            : new VerifyResult
+            {
+                Status = VerifyStatus.Match,
+                Payments = payments,
+                MatchedDestinations = MatchedDestinationsFrom(payments),
+                VerifyUrl = verifyUrl,
+            };
 
     private string BuildVerifyUrl(BrantaApiOptions? options, string paymentLookup, Dictionary<string, string>? keys = null)
     {
@@ -419,12 +449,12 @@ public class BrantaService : IBrantaService
         return url;
     }
 
+    private static IEnumerable<QrDestination> SecretKeyDestinations(QRParser parser) =>
+        parser.Destinations.Where(d => d.SecretKey && d.Value.Trim() != "");
+
     private static string? UniformOnChainAddress(QRParser parser)
     {
-        var addresses = parser.Destinations
-            .Where(d => d.Type == DestinationType.BitcoinAddress && d.Value.Trim() != "")
-            .Select(d => d.Value)
-            .ToList();
+        var addresses = SecretKeyDestinations(parser).Select(d => d.Value).ToList();
         if (addresses.Count == 0) return null;
         var first = addresses[0];
         foreach (var address in addresses.Skip(1))
@@ -437,6 +467,13 @@ public class BrantaService : IBrantaService
         return first;
     }
 
+    private static HashSet<DestinationType>? ExpectedSecretKeyTypes(QRParser parser)
+    {
+        if (parser.ExpectedSecretKeyTypes == null || parser.ExpectedSecretKeyTypes.Count == 0)
+            return null;
+        return parser.ExpectedSecretKeyTypes.ToHashSet();
+    }
+
     private static bool AddressesMatch(string a, string b)
     {
         static bool IsBech32(string v) =>
@@ -445,6 +482,8 @@ public class BrantaService : IBrantaService
             v.StartsWith("bcrt1", StringComparison.OrdinalIgnoreCase);
 
         if (IsBech32(a) && IsBech32(b))
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        if (a.StartsWith("0x", StringComparison.Ordinal) && b.StartsWith("0x", StringComparison.Ordinal))
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         return a == b;
     }

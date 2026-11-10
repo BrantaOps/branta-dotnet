@@ -23,6 +23,8 @@ switch (result.Status)
 {
     case VerifyStatus.Match:
         // Show the card for result.Payments[0]. Link it to result.VerifyUrl.
+        // What to send is result.MatchedDestinations — each has Type + plaintext Value.
+        // e.g. UsdtPolygon / UsdcPolygon / BitcoinAddress / Bolt11. Do not infer token from pol:.
         break;
     case VerifyStatus.Unknown:
         // Not in Branta — show nothing.
@@ -36,7 +38,7 @@ switch (result.Status)
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. A bare address is `unknown`.
+On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Polygon EVM rails (`usdt_polygon`, `usdc_polygon`) need a `pol:` URI with the same params — token is on `MatchedDestinations[].Type`, not the `pol:` scheme. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
 
 A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 

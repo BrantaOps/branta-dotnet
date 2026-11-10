@@ -6,7 +6,15 @@ namespace Branta;
 internal class QrDestination
 {
     public required string Value { get; init; }
+
+    /// <summary>
+    /// Known rail type when the scheme or payload names one (e.g. bitcoin).
+    /// Not set for <c>pol:</c> — token comes from the matched payment destination.
+    /// </summary>
     public DestinationKind? Type { get; init; }
+
+    /// <summary>True when this instruction is a secret-key address rail for verify.</summary>
+    public bool SecretKey { get; init; }
 }
 
 internal class QRParser
@@ -16,6 +24,13 @@ internal class QRParser
     public List<QrDestination> Destinations { get; } = [];
     public string? OnChainEncryptionText { get; private set; }
     public string? OnChainEncryptionSecret { get; private set; }
+
+    /// <summary>
+    /// Destination types <c>VerifyAsync</c> may bind for this QR's scheme (match-if-any).
+    /// Set from the URI scheme — not from a token stamped on the address.
+    /// </summary>
+    public IReadOnlyList<DestinationKind>? ExpectedSecretKeyTypes { get; private set; }
+
     public bool HasUnverifiableInstruction { get; private set; }
 
     public QRParser(string qrText)
@@ -29,13 +44,36 @@ internal class QRParser
         }
 
         var scheme = uri.Scheme.ToLowerInvariant();
+        if (scheme == "pol")
+        {
+            var dest = GetDestination(text);
+            if (dest != null)
+            {
+                // Address only — token comes from the matched payment destination after verify.
+                Destinations.Add(new QrDestination { Value = dest, SecretKey = true });
+                ExpectedSecretKeyTypes = DestinationTypes.PolygonEvm;
+            }
+
+            var queryParams = ParseQueryString(uri.Query);
+            if (queryParams.TryGetValue("branta_id", out var brantaId))
+                OnChainEncryptionText = brantaId;
+            if (queryParams.TryGetValue("branta_secret", out var brantaSecret))
+                OnChainEncryptionSecret = brantaSecret;
+            return;
+        }
+
         if (scheme is "bitcoin" or "lightning")
         {
             var dest = GetDestination(text);
             if (dest != null)
             {
                 var destType = GetDestinationType(text);
-                Destinations.Add(new QrDestination { Value = dest, Type = destType });
+                Destinations.Add(new QrDestination
+                {
+                    Value = dest,
+                    Type = destType,
+                    SecretKey = destType == DestinationKind.BitcoinAddress,
+                });
                 if (dest != "" && destType != DestinationKind.BitcoinAddress && dest.GetDerivedKeyType() == null)
                 {
                     HasUnverifiableInstruction = true;
@@ -59,6 +97,11 @@ internal class QRParser
             if (queryParams.ContainsKey("bolt12")) HasUnverifiableInstruction = true;
             if (queryParams.ContainsKey("lno")) HasUnverifiableInstruction = true;
             if (queryParams.ContainsKey("pay")) HasUnverifiableInstruction = true;
+
+            if (Destinations.Any(d => d.SecretKey))
+            {
+                ExpectedSecretKeyTypes = [DestinationKind.BitcoinAddress];
+            }
 
             return;
         }
@@ -101,7 +144,7 @@ internal class QRParser
             HasUnverifiableInstruction = true;
             return;
         }
-        Destinations.Add(new QrDestination { Value = value, Type = type });
+        Destinations.Add(new QrDestination { Value = value, Type = type, SecretKey = onChain });
     }
 
     private static string? GetDestination(string text)

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `DestinationType.UsdtPolygon` for Polygon USDT. `AddPaymentAsync` encrypts the recipient with a random secret (same pattern as bitcoin). `VerifyAsync` parses `pol:` URIs with `branta_id` / `branta_secret`; other query params (`value`, `currency`, `user`) are ignored for binding. A bare `0x` address is `Unknown`. EVM address compare is case-insensitive.
+- `DestinationType.UsdcPolygon` for Polygon USDC. Same secret-key encrypt / `pol:` verify path as `usdt_polygon`. Token is the destination type on the payment; `pol:` remains the Polygon EVM scheme for both.
+- `VerifyAsync` `Match` includes `MatchedDestinations`: the rails this scan bound (plaintext + `Type`). Wallets should send from that list instead of filtering `Payments[].Destinations`.
+- `DestinationTypes.PolygonEvm` / `IsPolygonEvm` / `IsSecretKeyAddress` helpers.
+
+### Changed
+- `VerifyAsync` of a `pol:` URI binds any Polygon EVM family member whose decrypted address matches (match-if-any).
+- `pol:` parsing no longer stamps a token `DestinationType` on the QR address. The scheme maps to the Polygon EVM family for verify; the token still comes from the matched payment destination.
+
 ## [4.0.3] - 2026-11-01
 
 ### Fixed

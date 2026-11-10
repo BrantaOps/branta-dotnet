@@ -40,6 +40,8 @@ public class PaymentBuilderTests
     [InlineData(DestinationType.Bolt11, "bolt11")]
     [InlineData(DestinationType.ArkAddress, "ark_address")]
     [InlineData(DestinationType.SilentPayment, "silent_payment")]
+    [InlineData(DestinationType.UsdtPolygon, "usdt_polygon")]
+    [InlineData(DestinationType.UsdcPolygon, "usdc_polygon")]
     public void DestinationType_SerializesToCorrectJsonString(DestinationType type, string expected)
     {
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
