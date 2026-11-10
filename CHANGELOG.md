@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-10
+
 ### Added
 - `DestinationType.UsdtPolygon` for Polygon USDT. `AddPaymentAsync` encrypts the recipient with a random secret (same pattern as bitcoin). `VerifyAsync` parses `pol:` URIs with `branta_id` / `branta_secret`; other query params (`value`, `currency`, `user`) are ignored for binding. A bare `0x` address is `Unknown`. EVM address compare is case-insensitive.
 - `DestinationType.UsdcPolygon` for Polygon USDC. Same secret-key encrypt / `pol:` verify path as `usdt_polygon`. Token is the destination type on the payment; `pol:` remains the Polygon EVM scheme for both.
