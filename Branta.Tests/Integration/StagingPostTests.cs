@@ -151,8 +151,11 @@ public class StagingPostTests
         Assert.Single(match.MatchedDestinations!);
         Assert.Equal(DestinationType.UsdcPolygon, match.MatchedDestinations[0].Type);
 
+        Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(
+            $"pol:{address.ToLowerInvariant()}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
         Assert.Equal(VerifyStatus.Tampered, (await _service.VerifyAsync(
             $"pol:{swapped}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
         Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync(address)).Status);
+        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync($"pol:{address}?value=50")).Status);
     }
 }
