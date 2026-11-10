@@ -11,8 +11,36 @@ public class QRParserTests
 
         Assert.Equal("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", result.Destination);
         Assert.Equal(DestinationType.BitcoinAddress, result.DestinationType);
+        Assert.True(result.Destinations[0].SecretKey);
+        Assert.Equal([DestinationType.BitcoinAddress], result.ExpectedSecretKeyTypes);
         Assert.Null(result.OnChainEncryptionText);
         Assert.Null(result.OnChainEncryptionSecret);
+    }
+
+    [Fact]
+    public void QRParser_PolUri_IsAddressOnlyAndMapsToPolygonEvmFamily()
+    {
+        const string address = "0x278297528c32eCa01295B0d2135984d3442ec963";
+        var result = new QRParser(
+            $"pol:{address}?value=50&user=send&currency=USD&branta_id=abc%2Bdef%3D&branta_secret=1234");
+
+        Assert.Equal(address, result.Destination);
+        Assert.Null(result.DestinationType);
+        Assert.True(result.Destinations[0].SecretKey);
+        Assert.Equal(DestinationTypes.PolygonEvm, result.ExpectedSecretKeyTypes);
+        Assert.Equal("abc+def=", result.OnChainEncryptionText);
+        Assert.Equal("1234", result.OnChainEncryptionSecret);
+    }
+
+    [Fact]
+    public void QRParser_PolUriWithoutQuery_StillMapsToPolygonEvmFamily()
+    {
+        const string address = "0x278297528c32eCa01295B0d2135984d3442ec963";
+        var result = new QRParser($"pol:{address}");
+
+        Assert.Equal(address, result.Destination);
+        Assert.Null(result.DestinationType);
+        Assert.Equal(DestinationTypes.PolygonEvm, result.ExpectedSecretKeyTypes);
     }
 
     [Fact]

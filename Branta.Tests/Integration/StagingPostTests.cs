@@ -102,4 +102,60 @@ public class StagingPostTests
         var qr = $"bitcoin:{bitcoin}?lightning={bolt11}&branta_id={Uri.EscapeDataString(enc)}&branta_secret={posted.Secret}";
         Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(qr)).Status);
     }
+
+    [LivePostFact]
+    public async Task UsdtPolygon_PostEncryptsAndVerifies()
+    {
+        const string address = "0x278297528c32eCa01295B0d2135984d3442ec963";
+        const string swapped = "0x1111111111111111111111111111111111111111";
+        var posted = await _service.AddPaymentAsync(new PaymentBuilder()
+            .SetDescription($"dotnet usdt_polygon {Guid.NewGuid():N}")
+            .AddDestination(address, DestinationType.UsdtPolygon)
+            .SetTtl(120)
+            .Build());
+
+        Assert.Equal(DestinationType.UsdtPolygon, posted.Payment.Destinations[0].Type);
+        var enc = Uri.EscapeDataString(posted.Payment.Destinations[0].Value);
+        var match = await _service.VerifyAsync(
+            $"pol:{address}?value=50&currency=USD&branta_id={enc}&branta_secret={posted.Secret}");
+        Assert.Equal(VerifyStatus.Match, match.Status);
+        Assert.NotNull(match.MatchedDestinations);
+        Assert.Single(match.MatchedDestinations!);
+        Assert.Equal(DestinationType.UsdtPolygon, match.MatchedDestinations[0].Type);
+
+        Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(
+            $"pol:{address.ToLowerInvariant()}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
+        Assert.Equal(VerifyStatus.Tampered, (await _service.VerifyAsync(
+            $"pol:{swapped}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
+        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync(address)).Status);
+        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync($"pol:{address}?value=50")).Status);
+    }
+
+    [LivePostFact]
+    public async Task UsdcPolygon_PostEncryptsAndVerifies()
+    {
+        const string address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B";
+        const string swapped = "0x1111111111111111111111111111111111111111";
+        var posted = await _service.AddPaymentAsync(new PaymentBuilder()
+            .SetDescription($"dotnet usdc_polygon {Guid.NewGuid():N}")
+            .AddDestination(address, DestinationType.UsdcPolygon)
+            .SetTtl(120)
+            .Build());
+
+        Assert.Equal(DestinationType.UsdcPolygon, posted.Payment.Destinations[0].Type);
+        var enc = Uri.EscapeDataString(posted.Payment.Destinations[0].Value);
+        var match = await _service.VerifyAsync(
+            $"pol:{address}?value=50&currency=USD&branta_id={enc}&branta_secret={posted.Secret}");
+        Assert.Equal(VerifyStatus.Match, match.Status);
+        Assert.NotNull(match.MatchedDestinations);
+        Assert.Single(match.MatchedDestinations!);
+        Assert.Equal(DestinationType.UsdcPolygon, match.MatchedDestinations[0].Type);
+
+        Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(
+            $"pol:{address.ToLowerInvariant()}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
+        Assert.Equal(VerifyStatus.Tampered, (await _service.VerifyAsync(
+            $"pol:{swapped}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
+        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync(address)).Status);
+        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync($"pol:{address}?value=50")).Status);
+    }
 }

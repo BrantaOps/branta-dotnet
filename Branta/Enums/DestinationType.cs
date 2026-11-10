@@ -64,5 +64,32 @@ public enum DestinationType
     [JsonPropertyName("ark_address")]
     ArkAddress,
     [JsonPropertyName("silent_payment")]
-    SilentPayment
+    SilentPayment,
+    [JsonPropertyName("usdt_polygon")]
+    UsdtPolygon,
+    [JsonPropertyName("usdc_polygon")]
+    UsdcPolygon
+}
+
+/// <summary>
+/// Helpers for destination-type families used by verify and encrypt.
+/// </summary>
+public static class DestinationTypes
+{
+    /// <summary>
+    /// Polygon EVM secret-key rails. A <c>pol:</c> URI maps to this family for verify
+    /// (match-if-any). Token is still the destination type on the payment.
+    /// </summary>
+    public static readonly IReadOnlyList<DestinationType> PolygonEvm =
+    [
+        DestinationType.UsdtPolygon,
+        DestinationType.UsdcPolygon,
+    ];
+
+    public static bool IsPolygonEvm(DestinationType type) =>
+        type is DestinationType.UsdtPolygon or DestinationType.UsdcPolygon;
+
+    /// <summary>Address rails encrypted with a random branta_secret (not a derived key).</summary>
+    public static bool IsSecretKeyAddress(DestinationType type) =>
+        type == DestinationType.BitcoinAddress || IsPolygonEvm(type);
 }
