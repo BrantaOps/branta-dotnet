@@ -649,6 +649,16 @@ public class BrantaServiceTests
     }
 
     [Fact]
+    public async Task Verify_PolUri_0xPrefixCaseInsensitiveEvmMatch()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtPolygonAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([EncryptedUsdtPolygonPayment()]);
+
+        ExpectMatch(await _service.VerifyAsync(BrantaUsdtPolygonLookup("0X" + UsdtPolygonAddress[2..])));
+    }
+
+    [Fact]
     public async Task Verify_BareUsdtAndPolWithoutBranta_AreUnknown()
     {
         ExpectUnknown(await _service.VerifyAsync(UsdtPolygonAddress));
