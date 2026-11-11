@@ -23,6 +23,12 @@ public class BrantaServiceTests
     private const string UsdtPolygonAddress = "0x278297528c32eCa01295B0d2135984d3442ec963";
     private const string UsdcPolygonAddress = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B";
     private const string SiblingUsdtPolygonAddress = "0x2222222222222222222222222222222222222222";
+    private const string UsdtEthereumAddress = "0xBF5550253939187432Ef4dccE8089765d3DCb47f";
+    private const string EncryptedUsdtEthereumAddress = "encrypted-usdt-ethereum-address";
+    private const string UsdtTronAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
+    private const string EncryptedUsdtTronAddress = "encrypted-usdt-tron-address";
+    private const string UsdcSolanaAddress = "7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf";
+    private const string EncryptedUsdcSolanaAddress = "encrypted-usdc-solana-address";
     private const string SwappedPolygonAddress = "0x1111111111111111111111111111111111111111";
     private const string EncryptedUsdtPolygonAddress = "encrypted-usdt-polygon-address";
     private const string EncryptedUsdcPolygonAddress = "encrypted-usdc-polygon-address";
@@ -72,6 +78,10 @@ public class BrantaServiceTests
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcPolygonAddress, Secret)).Returns(UsdcPolygonAddress);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedSiblingUsdtPolygonAddress, Secret)).Returns(SiblingUsdtPolygonAddress);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcAtUsdtAddress, Secret)).Returns(UsdtPolygonAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtEthereumAddress, Secret)).Returns(UsdtEthereumAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtTronAddress, Secret)).Returns(UsdtTronAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcSolanaAddress, Secret)).Returns(UsdcSolanaAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdtTronAddress, Secret, false)).Returns(EncryptedUsdtTronAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(BitcoinAddress, Secret, false)).Returns(EncryptedBitcoinAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(Bolt11Invoice.ToLowerInvariant(), Bolt11Hash, true)).Returns(EncryptedBolt11);
         _aesEncryptionMock.Setup(e => e.Encrypt(UsdtPolygonAddress, Secret, false)).Returns(EncryptedUsdtPolygonAddress);
@@ -658,6 +668,54 @@ public class BrantaServiceTests
         ExpectMatch(await _service.VerifyAsync(BrantaUsdtPolygonLookup("0X" + UsdtPolygonAddress[2..])));
     }
 
+    private static string BrantaChainLookup(string scheme, string address, string encrypted) =>
+        $"{scheme}:{address}?value=50&branta_id={Uri.EscapeDataString(encrypted)}&branta_secret={Uri.EscapeDataString(Secret)}";
+
+    private async Task AssertChainMatch(string scheme, string address, string encrypted, DestinationType type)
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(encrypted, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment { Destinations = [new Destination { Value = encrypted, Type = type, Id = "zk-chain" }] }]);
+
+        var result = await _service.VerifyAsync(BrantaChainLookup(scheme, address, encrypted));
+
+        _clientMock.Verify(c => c.GetPaymentsAsync(encrypted, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()), Times.Once);
+        ExpectMatch(result);
+        Assert.Single(result.MatchedDestinations!);
+        Assert.Equal(type, result.MatchedDestinations![0].Type);
+        Assert.Equal(address, result.MatchedDestinations[0].Value);
+    }
+
+    [Fact]
+    public Task Verify_EthUri_UsdtEthereum_ReturnsMatchedDestinations() =>
+        AssertChainMatch("eth", UsdtEthereumAddress, EncryptedUsdtEthereumAddress, DestinationType.UsdtEthereum);
+
+    [Fact]
+    public Task Verify_TronUri_UsdtTron_ReturnsMatchedDestinations() =>
+        AssertChainMatch("tron", UsdtTronAddress, EncryptedUsdtTronAddress, DestinationType.UsdtTron);
+
+    [Fact]
+    public Task Verify_SolUri_UsdcSolana_ReturnsMatchedDestinations() =>
+        AssertChainMatch("sol", UsdcSolanaAddress, EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana);
+
+    [Fact]
+    public async Task Verify_TronUri_SwappedAddress_IsTampered()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtTronAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment { Destinations = [new Destination { Value = EncryptedUsdtTronAddress, Type = DestinationType.UsdtTron, Id = "zk-tron" }] }]);
+
+        ExpectTampered(await _service.VerifyAsync(BrantaChainLookup("tron", "TAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", EncryptedUsdtTronAddress)));
+    }
+
+    [Fact]
+    public async Task Verify_BareTronAndSolanaAddresses_AreUnknown()
+    {
+        ExpectUnknown(await _service.VerifyAsync(UsdtTronAddress));
+        ExpectUnknown(await _service.VerifyAsync(UsdcSolanaAddress));
+        _clientMock.Verify(c => c.GetPaymentsAsync(It.IsAny<string>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task Verify_BareUsdtAndPolWithoutBranta_AreUnknown()
     {
@@ -820,6 +878,24 @@ public class BrantaServiceTests
         Assert.Equal(DestinationType.UsdtPolygon, posted!.Destinations[0].Type);
         Assert.Equal(EncryptedUsdtPolygonAddress, posted.Destinations[0].Value);
         _aesEncryptionMock.Verify(e => e.Encrypt(UsdtPolygonAddress, Secret, false), Times.Once);
+    }
+
+    [Fact]
+    public async Task AddPayment_UsdtTron_EncryptsWithSecret()
+    {
+        Payment? posted = null;
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted = p)
+            .ReturnsAsync(() => posted);
+
+        var payment = new PaymentBuilder().AddDestination(UsdtTronAddress, DestinationType.UsdtTron).Build();
+        await _service.AddPaymentAsync(payment);
+
+        Assert.Equal(UsdtTronAddress, payment.Destinations[0].Value);
+        Assert.Equal(DestinationType.UsdtTron, posted!.Destinations[0].Type);
+        Assert.Equal(EncryptedUsdtTronAddress, posted.Destinations[0].Value);
+        _aesEncryptionMock.Verify(e => e.Encrypt(UsdtTronAddress, Secret, false), Times.Once);
     }
 
     [Fact]

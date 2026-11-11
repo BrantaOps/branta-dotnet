@@ -68,7 +68,25 @@ public enum DestinationType
     [JsonPropertyName("usdt_polygon")]
     UsdtPolygon,
     [JsonPropertyName("usdc_polygon")]
-    UsdcPolygon
+    UsdcPolygon,
+    [JsonPropertyName("usdt_ethereum")]
+    UsdtEthereum,
+    [JsonPropertyName("usdc_ethereum")]
+    UsdcEthereum,
+    [JsonPropertyName("usdt_bsc")]
+    UsdtBsc,
+    [JsonPropertyName("usdc_bsc")]
+    UsdcBsc,
+    [JsonPropertyName("usdt_tron")]
+    UsdtTron,
+    [JsonPropertyName("usdt_ton")]
+    UsdtTon,
+    [JsonPropertyName("usdc_ton")]
+    UsdcTon,
+    [JsonPropertyName("usdt_solana")]
+    UsdtSolana,
+    [JsonPropertyName("usdc_solana")]
+    UsdcSolana
 }
 
 /// <summary>
@@ -86,10 +104,50 @@ public static class DestinationTypes
         DestinationType.UsdcPolygon,
     ];
 
-    public static bool IsPolygonEvm(DestinationType type) =>
-        type is DestinationType.UsdtPolygon or DestinationType.UsdcPolygon;
+    public static readonly IReadOnlyList<DestinationType> EthereumEvm =
+    [
+        DestinationType.UsdtEthereum,
+        DestinationType.UsdcEthereum,
+    ];
+
+    public static readonly IReadOnlyList<DestinationType> BscEvm =
+    [
+        DestinationType.UsdtBsc,
+        DestinationType.UsdcBsc,
+    ];
+
+    public static readonly IReadOnlyList<DestinationType> Tron =
+    [
+        DestinationType.UsdtTron,
+    ];
+
+    public static readonly IReadOnlyList<DestinationType> Ton =
+    [
+        DestinationType.UsdtTon,
+        DestinationType.UsdcTon,
+    ];
+
+    public static readonly IReadOnlyList<DestinationType> Solana =
+    [
+        DestinationType.UsdtSolana,
+        DestinationType.UsdcSolana,
+    ];
+
+    /// <summary>URI scheme → secret-key destination family for verify (match-if-any).</summary>
+    public static readonly IReadOnlyDictionary<string, IReadOnlyList<DestinationType>> SecretKeyUriFamilies =
+        new Dictionary<string, IReadOnlyList<DestinationType>>
+        {
+            ["pol"] = PolygonEvm,
+            ["eth"] = EthereumEvm,
+            ["bsc"] = BscEvm,
+            ["tron"] = Tron,
+            ["ton"] = Ton,
+            ["sol"] = Solana,
+        };
+
+    public static bool IsPolygonEvm(DestinationType type) => PolygonEvm.Contains(type);
 
     /// <summary>Address rails encrypted with a random branta_secret (not a derived key).</summary>
     public static bool IsSecretKeyAddress(DestinationType type) =>
-        type == DestinationType.BitcoinAddress || IsPolygonEvm(type);
+        type == DestinationType.BitcoinAddress || SecretKeyUriFamilies.Values.Any(family => family.Contains(type));
 }
