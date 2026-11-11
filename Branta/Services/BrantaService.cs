@@ -483,7 +483,8 @@ public class BrantaService : IBrantaService
 
         if (IsBech32(a) && IsBech32(b))
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
-        if (a.StartsWith("0x", StringComparison.Ordinal) && b.StartsWith("0x", StringComparison.Ordinal))
+        if (a.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
+            b.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         return a == b;
     }
