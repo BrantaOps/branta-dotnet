@@ -31,7 +31,7 @@ public class DestinationTypesTest
         Assert.Equal([DestinationType.UsdtEthereum, DestinationType.UsdcEthereum], DestinationTypes.SecretKeyUriFamilies["eth"]);
         Assert.Equal([DestinationType.UsdtBsc, DestinationType.UsdcBsc], DestinationTypes.SecretKeyUriFamilies["bsc"]);
         Assert.Equal([DestinationType.UsdtTron], DestinationTypes.SecretKeyUriFamilies["tron"]);
-        Assert.Equal([DestinationType.UsdtTon, DestinationType.UsdcTon], DestinationTypes.SecretKeyUriFamilies["ton"]);
+        Assert.Equal([DestinationType.UsdtTon], DestinationTypes.SecretKeyUriFamilies["ton"]);
         Assert.Equal([DestinationType.UsdtSolana, DestinationType.UsdcSolana], DestinationTypes.SecretKeyUriFamilies["sol"]);
     }
 
@@ -50,7 +50,6 @@ public class DestinationTypesTest
     [InlineData(DestinationType.UsdcBsc, "usdc_bsc")]
     [InlineData(DestinationType.UsdtTron, "usdt_tron")]
     [InlineData(DestinationType.UsdtTon, "usdt_ton")]
-    [InlineData(DestinationType.UsdcTon, "usdc_ton")]
     [InlineData(DestinationType.UsdtSolana, "usdt_solana")]
     [InlineData(DestinationType.UsdcSolana, "usdc_solana")]
     public void StableTypes_SerializeToWireNames(DestinationType type, string wire)

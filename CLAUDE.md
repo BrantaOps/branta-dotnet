@@ -27,7 +27,7 @@ Public API lives in `namespace Branta`:
 - Release: bump `<AssemblyVersion>` in `Branta/Branta.csproj`, build in Release, upload `Branta/bin/Release/Branta.X.X.X.nupkg` to nuget.org.
 
 ### Key behaviors to preserve
-- **Encrypt everything.** On-chain lookups need `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. Stablecoin rails (`usdt_polygon`, `usdc_polygon`, `usdt_ethereum`, `usdc_ethereum`, `usdt_bsc`, `usdc_bsc`, `usdt_tron`, `usdt_ton`, `usdc_ton`, `usdt_solana`, `usdc_solana`) use a chain URI (`pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, `sol:`; see `DestinationTypes.SecretKeyUriFamilies`) with the same secret-key pattern as bitcoin; token is on the destination type / `MatchedDestinations[].Type`, not the URI scheme. A bare address is `Unknown`.
+- **Encrypt everything.** On-chain lookups need `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. Stablecoin rails (`usdt_polygon`, `usdc_polygon`, `usdt_ethereum`, `usdc_ethereum`, `usdt_bsc`, `usdc_bsc`, `usdt_tron`, `usdt_ton`, `usdt_solana`, `usdc_solana`) use a chain URI (`pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, `sol:`; see `DestinationTypes.SecretKeyUriFamilies`) with the same secret-key pattern as bitcoin; token is on the destination type / `MatchedDestinations[].Type`, not the URI scheme. A bare address is `Unknown`.
 - **`VerifyUrl` is always returned**, including on a miss, tamper, or incomplete lookup.
 - **`VerifyAsync` statuses:** `Match` (show the card), `Unknown` (not in Branta / 404), `Tampered` (destination altered), `Incomplete` (5xx, 429, or unreachable). Do not treat incomplete as unknown.
 - **`MatchedDestinations` on Match** — wallets send from that list, not by filtering `Payments[].Destinations`.

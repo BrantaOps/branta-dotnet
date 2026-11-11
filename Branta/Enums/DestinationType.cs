@@ -81,8 +81,6 @@ public enum DestinationType
     UsdtTron,
     [JsonPropertyName("usdt_ton")]
     UsdtTon,
-    [JsonPropertyName("usdc_ton")]
-    UsdcTon,
     [JsonPropertyName("usdt_solana")]
     UsdtSolana,
     [JsonPropertyName("usdc_solana")]
@@ -124,7 +122,6 @@ public static class DestinationTypes
     public static readonly IReadOnlyList<DestinationType> Ton =
     [
         DestinationType.UsdtTon,
-        DestinationType.UsdcTon,
     ];
 
     public static readonly IReadOnlyList<DestinationType> Solana =

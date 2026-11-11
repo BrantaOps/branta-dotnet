@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- Multi-rail stablecoin destination types `UsdtEthereum`, `UsdcEthereum`, `UsdtBsc`, `UsdcBsc`, `UsdtTron`, `UsdtTon`, `UsdcTon`, `UsdtSolana`, `UsdcSolana`. `AddPaymentAsync` encrypts them with a random secret. `VerifyAsync` parses `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` URIs with `branta_id` / `branta_secret` (`DestinationTypes.SecretKeyUriFamilies`), match-if-any within the scheme's family. A bare address is `Unknown`.
+- Multi-rail stablecoin destination types `UsdtEthereum`, `UsdcEthereum`, `UsdtBsc`, `UsdcBsc`, `UsdtTron`, `UsdtTon`, `UsdtSolana`, `UsdcSolana`. `AddPaymentAsync` encrypts them with a random secret. `VerifyAsync` parses `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` URIs with `branta_id` / `branta_secret` (`DestinationTypes.SecretKeyUriFamilies`), match-if-any within the scheme's family. A bare address is `Unknown`.
 
 ## [4.2.0] - 2026-11-10
 
