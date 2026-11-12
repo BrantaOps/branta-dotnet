@@ -184,6 +184,43 @@ public class BrantaClientTest
     }
 
     [Fact]
+    public async Task GetPaymentsAsync_MalformedJson_ThrowsIncompleteError()
+    {
+        var client = CreateClient("{");
+
+        var ex = await Assert.ThrowsAsync<IncompleteError>(() => client.GetPaymentsAsync("value"));
+        Assert.Equal("MalformedResponse", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_NonArrayBody_ReturnsEmptyList()
+    {
+        var client = CreateClient("""{"not":"an-array"}""");
+
+        var payments = await client.GetPaymentsAsync("value");
+
+        Assert.Empty(payments);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_BadRowShape_ThrowsIncompleteError()
+    {
+        var client = CreateClient("[1]");
+
+        var ex = await Assert.ThrowsAsync<IncompleteError>(() => client.GetPaymentsAsync("value"));
+        Assert.Equal("MalformedResponse", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_Timeout_ThrowsIncompleteError()
+    {
+        var client = CreateClient(new FakeHttpMessageHandler(new TaskCanceledException("timed out")));
+
+        var ex = await Assert.ThrowsAsync<IncompleteError>(() => client.GetPaymentsAsync("value"));
+        Assert.Equal("timed out", ex.Message);
+    }
+
+    [Fact]
     public async Task GetPaymentsAsync_Canceled_IsNotWrappedAsIncompleteError()
     {
         using var cts = new CancellationTokenSource();

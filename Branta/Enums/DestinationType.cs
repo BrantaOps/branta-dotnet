@@ -88,50 +88,50 @@ public enum DestinationType
 }
 
 /// <summary>
-/// Helpers for destination-type families used by verify and encrypt.
+/// Internal helpers for destination-type families used by verify and encrypt.
 /// </summary>
-public static class DestinationTypes
+internal static class DestinationTypes
 {
     /// <summary>
     /// Polygon EVM secret-key rails. A <c>pol:</c> URI maps to this family for verify
     /// (match-if-any). Token is still the destination type on the payment.
     /// </summary>
-    public static readonly IReadOnlyList<DestinationType> PolygonEvm =
+    internal static readonly IReadOnlyList<DestinationType> PolygonEvm =
     [
         DestinationType.UsdtPolygon,
         DestinationType.UsdcPolygon,
     ];
 
-    public static readonly IReadOnlyList<DestinationType> EthereumEvm =
+    internal static readonly IReadOnlyList<DestinationType> EthereumEvm =
     [
         DestinationType.UsdtEthereum,
         DestinationType.UsdcEthereum,
     ];
 
-    public static readonly IReadOnlyList<DestinationType> BscEvm =
+    internal static readonly IReadOnlyList<DestinationType> BscEvm =
     [
         DestinationType.UsdtBsc,
         DestinationType.UsdcBsc,
     ];
 
-    public static readonly IReadOnlyList<DestinationType> Tron =
+    internal static readonly IReadOnlyList<DestinationType> Tron =
     [
         DestinationType.UsdtTron,
     ];
 
-    public static readonly IReadOnlyList<DestinationType> Ton =
+    internal static readonly IReadOnlyList<DestinationType> Ton =
     [
         DestinationType.UsdtTon,
     ];
 
-    public static readonly IReadOnlyList<DestinationType> Solana =
+    internal static readonly IReadOnlyList<DestinationType> Solana =
     [
         DestinationType.UsdtSolana,
         DestinationType.UsdcSolana,
     ];
 
     /// <summary>URI scheme → secret-key destination family for verify (match-if-any).</summary>
-    public static readonly IReadOnlyDictionary<string, IReadOnlyList<DestinationType>> SecretKeyUriFamilies =
+    internal static readonly IReadOnlyDictionary<string, IReadOnlyList<DestinationType>> SecretKeyUriFamilies =
         new Dictionary<string, IReadOnlyList<DestinationType>>
         {
             ["pol"] = PolygonEvm,
@@ -142,9 +142,7 @@ public static class DestinationTypes
             ["sol"] = Solana,
         };
 
-    public static bool IsPolygonEvm(DestinationType type) => PolygonEvm.Contains(type);
-
     /// <summary>Address rails encrypted with a random branta_secret (not a derived key).</summary>
-    public static bool IsSecretKeyAddress(DestinationType type) =>
+    internal static bool IsSecretKeyAddress(DestinationType type) =>
         type == DestinationType.BitcoinAddress || SecretKeyUriFamilies.Values.Any(family => family.Contains(type));
 }

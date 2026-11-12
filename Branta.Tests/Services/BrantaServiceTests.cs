@@ -25,11 +25,22 @@ public class BrantaServiceTests
     private const string SiblingUsdtPolygonAddress = "0x2222222222222222222222222222222222222222";
     private const string UsdtEthereumAddress = "0xBF5550253939187432Ef4dccE8089765d3DCb47f";
     private const string EncryptedUsdtEthereumAddress = "encrypted-usdt-ethereum-address";
+    private const string UsdcEthereumAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+    private const string EncryptedUsdcEthereumAddress = "encrypted-usdc-ethereum-address";
+    private const string UsdtBscAddress = "0x55d398326f99059fF775485246999027B3197955";
+    private const string EncryptedUsdtBscAddress = "encrypted-usdt-bsc-address";
+    private const string UsdcBscAddress = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d";
+    private const string EncryptedUsdcBscAddress = "encrypted-usdc-bsc-address";
     private const string UsdtTronAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
     private const string EncryptedUsdtTronAddress = "encrypted-usdt-tron-address";
+    private const string UsdtTonAddress = "EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by";
+    private const string EncryptedUsdtTonAddress = "encrypted-usdt-ton-address";
+    private const string UsdtSolanaAddress = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+    private const string EncryptedUsdtSolanaAddress = "encrypted-usdt-solana-address";
     private const string UsdcSolanaAddress = "7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf";
     private const string EncryptedUsdcSolanaAddress = "encrypted-usdc-solana-address";
     private const string SwappedPolygonAddress = "0x1111111111111111111111111111111111111111";
+    private const string SwappedEvmAddress = "0x3333333333333333333333333333333333333333";
     private const string EncryptedUsdtPolygonAddress = "encrypted-usdt-polygon-address";
     private const string EncryptedUsdcPolygonAddress = "encrypted-usdc-polygon-address";
     private const string EncryptedSiblingUsdtPolygonAddress = "encrypted-sibling-usdt-polygon-address";
@@ -79,13 +90,25 @@ public class BrantaServiceTests
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedSiblingUsdtPolygonAddress, Secret)).Returns(SiblingUsdtPolygonAddress);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcAtUsdtAddress, Secret)).Returns(UsdtPolygonAddress);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtEthereumAddress, Secret)).Returns(UsdtEthereumAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcEthereumAddress, Secret)).Returns(UsdcEthereumAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtBscAddress, Secret)).Returns(UsdtBscAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcBscAddress, Secret)).Returns(UsdcBscAddress);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtTronAddress, Secret)).Returns(UsdtTronAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtTonAddress, Secret)).Returns(UsdtTonAddress);
+        _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdtSolanaAddress, Secret)).Returns(UsdtSolanaAddress);
         _aesEncryptionMock.Setup(e => e.Decrypt(EncryptedUsdcSolanaAddress, Secret)).Returns(UsdcSolanaAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(UsdtTronAddress, Secret, false)).Returns(EncryptedUsdtTronAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(BitcoinAddress, Secret, false)).Returns(EncryptedBitcoinAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(Bolt11Invoice.ToLowerInvariant(), Bolt11Hash, true)).Returns(EncryptedBolt11);
         _aesEncryptionMock.Setup(e => e.Encrypt(UsdtPolygonAddress, Secret, false)).Returns(EncryptedUsdtPolygonAddress);
         _aesEncryptionMock.Setup(e => e.Encrypt(UsdcPolygonAddress, Secret, false)).Returns(EncryptedUsdcPolygonAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdtEthereumAddress, Secret, false)).Returns(EncryptedUsdtEthereumAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdcEthereumAddress, Secret, false)).Returns(EncryptedUsdcEthereumAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdtBscAddress, Secret, false)).Returns(EncryptedUsdtBscAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdcBscAddress, Secret, false)).Returns(EncryptedUsdcBscAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdtTonAddress, Secret, false)).Returns(EncryptedUsdtTonAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdtSolanaAddress, Secret, false)).Returns(EncryptedUsdtSolanaAddress);
+        _aesEncryptionMock.Setup(e => e.Encrypt(UsdcSolanaAddress, Secret, false)).Returns(EncryptedUsdcSolanaAddress);
     }
 
     private static Payment EncryptedBitcoinAndUsdtPolygonPayment() => new()
@@ -691,29 +714,184 @@ public class BrantaServiceTests
         AssertChainMatch("eth", UsdtEthereumAddress, EncryptedUsdtEthereumAddress, DestinationType.UsdtEthereum);
 
     [Fact]
+    public Task Verify_EthUri_UsdcEthereum_ReturnsMatchedDestinations() =>
+        AssertChainMatch("eth", UsdcEthereumAddress, EncryptedUsdcEthereumAddress, DestinationType.UsdcEthereum);
+
+    [Fact]
+    public Task Verify_BscUri_UsdtBsc_ReturnsMatchedDestinations() =>
+        AssertChainMatch("bsc", UsdtBscAddress, EncryptedUsdtBscAddress, DestinationType.UsdtBsc);
+
+    [Fact]
+    public Task Verify_BscUri_UsdcBsc_ReturnsMatchedDestinations() =>
+        AssertChainMatch("bsc", UsdcBscAddress, EncryptedUsdcBscAddress, DestinationType.UsdcBsc);
+
+    [Fact]
     public Task Verify_TronUri_UsdtTron_ReturnsMatchedDestinations() =>
         AssertChainMatch("tron", UsdtTronAddress, EncryptedUsdtTronAddress, DestinationType.UsdtTron);
+
+    [Fact]
+    public Task Verify_TonUri_UsdtTon_ReturnsMatchedDestinations() =>
+        AssertChainMatch("ton", UsdtTonAddress, EncryptedUsdtTonAddress, DestinationType.UsdtTon);
+
+    [Fact]
+    public Task Verify_SolUri_UsdtSolana_ReturnsMatchedDestinations() =>
+        AssertChainMatch("sol", UsdtSolanaAddress, EncryptedUsdtSolanaAddress, DestinationType.UsdtSolana);
 
     [Fact]
     public Task Verify_SolUri_UsdcSolana_ReturnsMatchedDestinations() =>
         AssertChainMatch("sol", UsdcSolanaAddress, EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana);
 
-    [Fact]
-    public async Task Verify_TronUri_SwappedAddress_IsTampered()
+    private async Task AssertChainSwapped(string scheme, string address, string swapped, string encrypted, DestinationType type)
     {
         _clientMock
-            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtTronAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new Payment { Destinations = [new Destination { Value = EncryptedUsdtTronAddress, Type = DestinationType.UsdtTron, Id = "zk-tron" }] }]);
+            .Setup(c => c.GetPaymentsAsync(encrypted, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment { Destinations = [new Destination { Value = encrypted, Type = type, Id = "zk-chain" }] }]);
 
-        ExpectTampered(await _service.VerifyAsync(BrantaChainLookup("tron", "TAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", EncryptedUsdtTronAddress)));
+        ExpectTampered(await _service.VerifyAsync(BrantaChainLookup(scheme, swapped, encrypted)));
     }
 
     [Fact]
-    public async Task Verify_BareTronAndSolanaAddresses_AreUnknown()
+    public Task Verify_EthUri_SwappedAddress_IsTampered() =>
+        AssertChainSwapped("eth", UsdtEthereumAddress, SwappedEvmAddress, EncryptedUsdtEthereumAddress, DestinationType.UsdtEthereum);
+
+    [Fact]
+    public Task Verify_BscUri_SwappedAddress_IsTampered() =>
+        AssertChainSwapped("bsc", UsdtBscAddress, SwappedEvmAddress, EncryptedUsdtBscAddress, DestinationType.UsdtBsc);
+
+    [Fact]
+    public Task Verify_TronUri_SwappedAddress_IsTampered() =>
+        AssertChainSwapped("tron", UsdtTronAddress, "TAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", EncryptedUsdtTronAddress, DestinationType.UsdtTron);
+
+    [Fact]
+    public Task Verify_TonUri_SwappedAddress_IsTampered() =>
+        AssertChainSwapped("ton", UsdtTonAddress, "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c", EncryptedUsdtTonAddress, DestinationType.UsdtTon);
+
+    [Fact]
+    public Task Verify_SolUri_SwappedAddress_IsTampered() =>
+        AssertChainSwapped("sol", UsdcSolanaAddress, "11111111111111111111111111111111", EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana);
+
+    [Fact]
+    public async Task Verify_EthUri_CaseInsensitiveAnd0XPrefixMatch()
     {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtEthereumAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment { Destinations = [new Destination { Value = EncryptedUsdtEthereumAddress, Type = DestinationType.UsdtEthereum, Id = "zk" }] }]);
+
+        ExpectMatch(await _service.VerifyAsync(BrantaChainLookup("eth", UsdtEthereumAddress.ToLowerInvariant(), EncryptedUsdtEthereumAddress)));
+
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtEthereumAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment { Destinations = [new Destination { Value = EncryptedUsdtEthereumAddress, Type = DestinationType.UsdtEthereum, Id = "zk" }] }]);
+        ExpectMatch(await _service.VerifyAsync(BrantaChainLookup("eth", "0X" + UsdtEthereumAddress[2..], EncryptedUsdtEthereumAddress)));
+    }
+
+    [Fact]
+    public async Task Verify_EthUri_IgnoresSiblingBitcoinRail()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtEthereumAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment
+            {
+                Destinations =
+                [
+                    new Destination { Value = EncryptedBitcoinAddress, Type = DestinationType.BitcoinAddress, Id = "zk-btc" },
+                    new Destination { Value = EncryptedUsdtEthereumAddress, Type = DestinationType.UsdtEthereum, Id = "zk-usdt" },
+                ]
+            }]);
+
+        var result = await _service.VerifyAsync(BrantaChainLookup("eth", UsdtEthereumAddress, EncryptedUsdtEthereumAddress));
+        ExpectMatch(result);
+        Assert.True(result.Payments![0].Destinations[0].IsEncrypted);
+        Assert.False(result.Payments[0].Destinations[1].IsEncrypted);
+        Assert.Equal(UsdtEthereumAddress, result.Payments[0].Destinations[1].Value);
+    }
+
+    [Fact]
+    public async Task Verify_EthUri_SwappedStillTamperedWithSiblingBitcoin()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtEthereumAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment
+            {
+                Destinations =
+                [
+                    new Destination { Value = EncryptedBitcoinAddress, Type = DestinationType.BitcoinAddress, Id = "zk-btc" },
+                    new Destination { Value = EncryptedUsdtEthereumAddress, Type = DestinationType.UsdtEthereum, Id = "zk-usdt" },
+                ]
+            }]);
+
+        ExpectTampered(await _service.VerifyAsync(BrantaChainLookup("eth", SwappedEvmAddress, EncryptedUsdtEthereumAddress)));
+    }
+
+    [Fact]
+    public async Task Verify_EthUri_BindsUsdtLeavesUsdcEncrypted()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtEthereumAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Payment
+            {
+                Destinations =
+                [
+                    new Destination { Value = EncryptedUsdtEthereumAddress, Type = DestinationType.UsdtEthereum, Id = "zk-usdt" },
+                    new Destination { Value = EncryptedUsdcEthereumAddress, Type = DestinationType.UsdcEthereum, Id = "zk-usdc" },
+                ]
+            }]);
+
+        var result = await _service.VerifyAsync(BrantaChainLookup("eth", UsdtEthereumAddress, EncryptedUsdtEthereumAddress));
+        ExpectMatch(result);
+        Assert.Equal(DestinationType.UsdtEthereum, result.MatchedDestinations![0].Type);
+        Assert.True(result.Payments![0].Destinations[1].IsEncrypted);
+    }
+
+    [Fact]
+    public async Task Verify_EthUri_WithPolygonOnlyPayment_IsUnknown()
+    {
+        _clientMock
+            .Setup(c => c.GetPaymentsAsync(EncryptedUsdtPolygonAddress, It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([EncryptedUsdtPolygonPayment()]);
+
+        ExpectUnknown(await _service.VerifyAsync(BrantaChainLookup("eth", UsdtEthereumAddress, EncryptedUsdtPolygonAddress)));
+    }
+
+    [Fact]
+    public async Task Verify_BareChainAddresses_AreUnknown()
+    {
+        ExpectUnknown(await _service.VerifyAsync(UsdtEthereumAddress));
+        ExpectUnknown(await _service.VerifyAsync(UsdtBscAddress));
         ExpectUnknown(await _service.VerifyAsync(UsdtTronAddress));
+        ExpectUnknown(await _service.VerifyAsync(UsdtTonAddress));
         ExpectUnknown(await _service.VerifyAsync(UsdcSolanaAddress));
+        ExpectUnknown(await _service.VerifyAsync($"eth:{UsdtEthereumAddress}?value=50"));
         _clientMock.Verify(c => c.GetPaymentsAsync(It.IsAny<string>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(UsdtPolygonAddress, DestinationType.UsdtPolygon, EncryptedUsdtPolygonAddress)]
+    [InlineData(UsdcPolygonAddress, DestinationType.UsdcPolygon, EncryptedUsdcPolygonAddress)]
+    [InlineData(UsdtEthereumAddress, DestinationType.UsdtEthereum, EncryptedUsdtEthereumAddress)]
+    [InlineData(UsdcEthereumAddress, DestinationType.UsdcEthereum, EncryptedUsdcEthereumAddress)]
+    [InlineData(UsdtBscAddress, DestinationType.UsdtBsc, EncryptedUsdtBscAddress)]
+    [InlineData(UsdcBscAddress, DestinationType.UsdcBsc, EncryptedUsdcBscAddress)]
+    [InlineData(UsdtTronAddress, DestinationType.UsdtTron, EncryptedUsdtTronAddress)]
+    [InlineData(UsdtTonAddress, DestinationType.UsdtTon, EncryptedUsdtTonAddress)]
+    [InlineData(UsdtSolanaAddress, DestinationType.UsdtSolana, EncryptedUsdtSolanaAddress)]
+    [InlineData(UsdcSolanaAddress, DestinationType.UsdcSolana, EncryptedUsdcSolanaAddress)]
+    public async Task AddPayment_SecretKeyRails_EncryptWithSecret(string address, DestinationType type, string encrypted)
+    {
+        Payment? posted = null;
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted = p)
+            .ReturnsAsync(() => posted);
+
+        var payment = new PaymentBuilder().AddDestination(address, type).Build();
+        var result = await _service.AddPaymentAsync(payment);
+
+        Assert.Equal(address, payment.Destinations[0].Value);
+        Assert.Equal(type, posted!.Destinations[0].Type);
+        Assert.Equal(encrypted, posted.Destinations[0].Value);
+        Assert.Equal(Secret, result.Secret);
+        _aesEncryptionMock.Verify(e => e.Encrypt(address, Secret, false), Times.Once);
     }
 
     [Fact]

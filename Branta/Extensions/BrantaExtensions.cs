@@ -29,8 +29,10 @@ internal static class BrantaExtensions
     public static string? GetApiKey(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
         => overrideOptions?.ApiKey ?? defaultOptions?.ApiKey;
 
+#pragma warning disable CS0618 // HmacSecret is obsolete; still resolved for legacy parent platforms.
     public static string? GetHmacSecret(this BrantaApiOptions? defaultOptions, BrantaApiOptions? overrideOptions)
         => overrideOptions?.HmacSecret ?? defaultOptions?.HmacSecret;
+#pragma warning restore CS0618
 
     public static bool IsBolt11(this string value) =>
         value.StartsWith("lnbc", StringComparison.OrdinalIgnoreCase) ||

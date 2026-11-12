@@ -5,29 +5,10 @@ namespace Branta.Tests.Enums;
 public class DestinationTypesTest
 {
     [Fact]
-    public void PolygonEvm_IncludesUsdtAndUsdc()
-    {
-        Assert.Equal(
-            [DestinationType.UsdtPolygon, DestinationType.UsdcPolygon],
-            DestinationTypes.PolygonEvm);
-    }
-
-    [Theory]
-    [InlineData(DestinationType.UsdtPolygon, true)]
-    [InlineData(DestinationType.UsdcPolygon, true)]
-    [InlineData(DestinationType.BitcoinAddress, false)]
-    [InlineData(DestinationType.Bolt11, false)]
-    [InlineData(DestinationType.ArkAddress, false)]
-    [InlineData(DestinationType.SilentPayment, false)]
-    public void IsPolygonEvm_MatchesFamily(DestinationType type, bool expected)
-    {
-        Assert.Equal(expected, DestinationTypes.IsPolygonEvm(type));
-    }
-
-    [Fact]
     public void SecretKeyUriFamilies_MapSchemesToFamilies()
     {
         Assert.Equal(["pol", "eth", "bsc", "tron", "ton", "sol"], DestinationTypes.SecretKeyUriFamilies.Keys.ToArray());
+        Assert.Equal([DestinationType.UsdtPolygon, DestinationType.UsdcPolygon], DestinationTypes.SecretKeyUriFamilies["pol"]);
         Assert.Equal([DestinationType.UsdtEthereum, DestinationType.UsdcEthereum], DestinationTypes.SecretKeyUriFamilies["eth"]);
         Assert.Equal([DestinationType.UsdtBsc, DestinationType.UsdcBsc], DestinationTypes.SecretKeyUriFamilies["bsc"]);
         Assert.Equal([DestinationType.UsdtTron], DestinationTypes.SecretKeyUriFamilies["tron"]);
@@ -41,6 +22,16 @@ public class DestinationTypesTest
         Assert.True(DestinationTypes.IsSecretKeyAddress(DestinationType.BitcoinAddress));
         foreach (var type in DestinationTypes.SecretKeyUriFamilies.Values.SelectMany(f => f))
             Assert.True(DestinationTypes.IsSecretKeyAddress(type), type.ToString());
+        Assert.False(DestinationTypes.IsSecretKeyAddress(DestinationType.Bolt11));
+        Assert.False(DestinationTypes.IsSecretKeyAddress(DestinationType.ArkAddress));
+        Assert.False(DestinationTypes.IsSecretKeyAddress(DestinationType.SilentPayment));
+    }
+
+    [Fact]
+    public void DestinationType_HasFourteenMembers_AndNoUsdcTon()
+    {
+        Assert.Equal(14, Enum.GetValues<DestinationType>().Length);
+        Assert.Null(DestinationTypeConverter.TryParse("usdc_ton"));
     }
 
     [Theory]

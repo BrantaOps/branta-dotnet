@@ -491,6 +491,9 @@ public class BrantaService : IBrantaService
 
     private sealed class DefaultHttpClientFactory : IHttpClientFactory
     {
-        public HttpClient CreateClient(string name) => new();
+        public HttpClient CreateClient(string name) => new()
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
     }
 }

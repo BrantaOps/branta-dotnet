@@ -46,12 +46,31 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
             throw new IncompleteError(response.StatusCode.ToString());
         }
 
-        if (response.Content.Headers.ContentLength == 0)
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrEmpty(body))
         {
             return [];
         }
 
-        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(_jsonOptions, cancellationToken) ?? [];
+        List<Payment> payments;
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                // Match JS/Kotlin/Swift: non-array 200 bodies decode as an empty list.
+                payments = [];
+            }
+            else
+            {
+                payments = JsonSerializer.Deserialize<List<Payment>>(body, _jsonOptions) ?? [];
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException)
+        {
+            // Malformed JSON or a bad row shape — unfinished lookup, not a crash.
+            throw new IncompleteError("MalformedResponse");
+        }
 
         VerifyLogoUrls(httpClient, payments);
 

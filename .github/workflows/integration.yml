@@ -24,3 +24,12 @@ jobs:
           fi
       - name: Example QR codes against staging and production
         run: dotnet test -f net8.0 --filter FullyQualifiedName~ExampleQRCodes
+      - name: Multi-rail round-trips (requires API key secret)
+        env:
+          BRANTA_API_KEY: ${{ secrets.BRANTA_API_KEY }}
+        run: |
+          if [ -z "$BRANTA_API_KEY" ]; then
+            echo "Skipping MultiRailRoundTrip — set BRANTA_API_KEY Actions secret for POST coverage."
+            exit 0
+          fi
+          dotnet test -f net8.0 --filter FullyQualifiedName~MultiRailRoundTrip

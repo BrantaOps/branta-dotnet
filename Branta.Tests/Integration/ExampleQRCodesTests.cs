@@ -26,7 +26,7 @@ internal sealed class SimpleHttpClientFactory : IHttpClientFactory
 {
     public HttpClient CreateClient(string name)
     {
-        var client = new HttpClient();
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         var token = Environment.GetEnvironmentVariable("BRANTA_INTEGRATION_METRICS_TOKEN");
         if (!string.IsNullOrEmpty(token))
             client.DefaultRequestHeaders.TryAddWithoutValidation("X-Branta-Integration-Token", token);
