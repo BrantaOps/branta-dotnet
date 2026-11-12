@@ -313,7 +313,6 @@ public class BrantaService : IBrantaService
         foreach (var destination in payment.Destinations)
         {
             if (!destination.IsEncrypted) continue;
-            destination.IsEncrypted = true;
 
             if (destination.Type == null || !DestinationTypes.IsSecretKeyAddress(destination.Type.Value))
                 continue;
@@ -489,11 +488,22 @@ public class BrantaService : IBrantaService
         return a == b;
     }
 
+    /// <summary>
+    /// Shared handler for the non-DI constructor. Callers must not mutate the returned
+    /// client's BaseAddress or DefaultRequestHeaders — BrantaClient uses absolute URIs
+    /// and per-request Authorization instead.
+    /// </summary>
     private sealed class DefaultHttpClientFactory : IHttpClientFactory
     {
-        public HttpClient CreateClient(string name) => new()
+        private static readonly HttpClient Shared = new(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+        })
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
+
+        public HttpClient CreateClient(string name) => Shared;
     }
 }
+

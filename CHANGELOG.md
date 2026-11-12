@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking for 4.2.0 callers:** `DestinationTypes` / family lists / `IsSecretKeyAddress` are `internal` (match JS/Python/Dart/Swift/Kotlin consumer surface).
 - Malformed GET JSON / bad payment rows map to `Incomplete` (not a thrown decode error). Non-array 200 bodies decode as an empty list.
 - Default `HttpClient` uses a 30s timeout so hung networks become `Incomplete` on verify.
+- HTTP responses are disposed on every path; the non-DI constructor shares one pooled `HttpClient` (absolute URIs / per-request auth — no BaseAddress mutation).
 - `HmacSecret` on `BrantaApiOptions` is obsolete; prefer a shared `ApiKey` with `PaymentBuilder.SetChildPlatform`.
 
 ### Removed
