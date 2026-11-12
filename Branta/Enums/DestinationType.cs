@@ -68,28 +68,81 @@ public enum DestinationType
     [JsonPropertyName("usdt_polygon")]
     UsdtPolygon,
     [JsonPropertyName("usdc_polygon")]
-    UsdcPolygon
+    UsdcPolygon,
+    [JsonPropertyName("usdt_ethereum")]
+    UsdtEthereum,
+    [JsonPropertyName("usdc_ethereum")]
+    UsdcEthereum,
+    [JsonPropertyName("usdt_bsc")]
+    UsdtBsc,
+    [JsonPropertyName("usdc_bsc")]
+    UsdcBsc,
+    [JsonPropertyName("usdt_tron")]
+    UsdtTron,
+    [JsonPropertyName("usdt_ton")]
+    UsdtTon,
+    [JsonPropertyName("usdt_solana")]
+    UsdtSolana,
+    [JsonPropertyName("usdc_solana")]
+    UsdcSolana
 }
 
 /// <summary>
-/// Helpers for destination-type families used by verify and encrypt.
+/// Internal helpers for destination-type families used by verify and encrypt.
 /// </summary>
-public static class DestinationTypes
+internal static class DestinationTypes
 {
     /// <summary>
     /// Polygon EVM secret-key rails. A <c>pol:</c> URI maps to this family for verify
     /// (match-if-any). Token is still the destination type on the payment.
     /// </summary>
-    public static readonly IReadOnlyList<DestinationType> PolygonEvm =
+    internal static readonly IReadOnlyList<DestinationType> PolygonEvm =
     [
         DestinationType.UsdtPolygon,
         DestinationType.UsdcPolygon,
     ];
 
-    public static bool IsPolygonEvm(DestinationType type) =>
-        type is DestinationType.UsdtPolygon or DestinationType.UsdcPolygon;
+    internal static readonly IReadOnlyList<DestinationType> EthereumEvm =
+    [
+        DestinationType.UsdtEthereum,
+        DestinationType.UsdcEthereum,
+    ];
+
+    internal static readonly IReadOnlyList<DestinationType> BscEvm =
+    [
+        DestinationType.UsdtBsc,
+        DestinationType.UsdcBsc,
+    ];
+
+    internal static readonly IReadOnlyList<DestinationType> Tron =
+    [
+        DestinationType.UsdtTron,
+    ];
+
+    internal static readonly IReadOnlyList<DestinationType> Ton =
+    [
+        DestinationType.UsdtTon,
+    ];
+
+    internal static readonly IReadOnlyList<DestinationType> Solana =
+    [
+        DestinationType.UsdtSolana,
+        DestinationType.UsdcSolana,
+    ];
+
+    /// <summary>URI scheme → secret-key destination family for verify (match-if-any).</summary>
+    internal static readonly IReadOnlyDictionary<string, IReadOnlyList<DestinationType>> SecretKeyUriFamilies =
+        new Dictionary<string, IReadOnlyList<DestinationType>>
+        {
+            ["pol"] = PolygonEvm,
+            ["eth"] = EthereumEvm,
+            ["bsc"] = BscEvm,
+            ["tron"] = Tron,
+            ["ton"] = Ton,
+            ["sol"] = Solana,
+        };
 
     /// <summary>Address rails encrypted with a random branta_secret (not a derived key).</summary>
-    public static bool IsSecretKeyAddress(DestinationType type) =>
-        type == DestinationType.BitcoinAddress || IsPolygonEvm(type);
+    internal static bool IsSecretKeyAddress(DestinationType type) =>
+        type == DestinationType.BitcoinAddress || SecretKeyUriFamilies.Values.Any(family => family.Contains(type));
 }

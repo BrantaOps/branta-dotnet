@@ -24,14 +24,24 @@ internal sealed class LivePostFactAttribute : FactAttribute
 
 internal sealed class SimpleHttpClientFactory : IHttpClientFactory
 {
-    public HttpClient CreateClient(string name)
+    private static readonly HttpClient Shared = CreateShared();
+
+    private static HttpClient CreateShared()
     {
-        var client = new HttpClient();
+        var client = new HttpClient(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2)
+        })
+        {
+            Timeout = TimeSpan.FromSeconds(30)
+        };
         var token = Environment.GetEnvironmentVariable("BRANTA_INTEGRATION_METRICS_TOKEN");
         if (!string.IsNullOrEmpty(token))
             client.DefaultRequestHeaders.TryAddWithoutValidation("X-Branta-Integration-Token", token);
         return client;
     }
+
+    public HttpClient CreateClient(string name) => Shared;
 }
 
 internal static class ServiceFactory

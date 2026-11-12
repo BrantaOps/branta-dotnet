@@ -7,7 +7,7 @@ Use `VerifyAsync` on send and `AddPaymentAsync` on receive. Status handling and 
 ## Install
 
 ```bash
-dotnet add package Branta
+dotnet add package Branta --version 4.3.0
 ```
 
 ## Send
@@ -24,7 +24,7 @@ switch (result.Status)
     case VerifyStatus.Match:
         // Show the card for result.Payments[0]. Link it to result.VerifyUrl.
         // What to send is result.MatchedDestinations — each has Type + plaintext Value.
-        // e.g. UsdtPolygon / UsdcPolygon / BitcoinAddress / Bolt11. Do not infer token from pol:.
+        // e.g. UsdtEthereum / UsdcSolana / BitcoinAddress. Do not infer token from the URI scheme.
         break;
     case VerifyStatus.Unknown:
         // Not in Branta — show nothing.
@@ -33,14 +33,15 @@ switch (result.Status)
         // Destination was altered. Warn. Do not show a verified card.
         break;
     case VerifyStatus.Incomplete:
-        // 5xx, 429, or unreachable. Tell the user. Do not treat as unknown.
+        // 5xx, 429, unreachable, timeout, or malformed lookup. Tell the user.
+        // Do not treat as unknown.
         break;
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Polygon EVM rails (`usdt_polygon`, `usdc_polygon`) need a `pol:` URI with the same params — token is on `MatchedDestinations[].Type`, not the `pol:` scheme. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
+On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Stablecoin rails need a chain URI with the same params — `pol:` (`usdt_polygon`, `usdc_polygon`), `eth:` (`usdt_ethereum`, `usdc_ethereum`), `bsc:` (`usdt_bsc`, `usdc_bsc`), `tron:` (`usdt_tron`), `ton:` (`usdt_ton`), `sol:` (`usdt_solana`, `usdc_solana`). Token is on `MatchedDestinations[].Type`, not the URI scheme; verify is match-if-any within the scheme's family. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
 
-A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
+A 404 is `unknown`. 5xx, 429, no network, a timeout, or a malformed GET body is `incomplete`. A logo on the wrong origin throws.
 
 ## Receive
 
@@ -52,8 +53,8 @@ var service = new BrantaService(BrantaEnvironment.Production, apiKey: "<api-key>
 var payment = new PaymentBuilder()
     .SetDescription("Invoice #12345")
     .AddDestination("bc1q…", DestinationType.BitcoinAddress)
-    // Polygon: pass UsdtPolygon / UsdcPolygon explicitly — bare 0x is not auto-detected.
-    // .AddDestination("0x…", DestinationType.UsdtPolygon)
+    // Stablecoin: pass the type explicitly — bare addresses are not auto-detected.
+    // .AddDestination("0x…", DestinationType.UsdtEthereum)
     .SetTtl(600) // seconds
     .Build();
 
@@ -61,10 +62,10 @@ var posted = await service.AddPaymentAsync(payment);
 // posted.Secret, posted.VerifyUrl, posted.Payment
 ```
 
-Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR (`bitcoin:…` or `pol:…`).
+Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR (`bitcoin:…`, `pol:…`, `eth:…`, …).
 
-Parent platforms: prefer a shared API key and `SetChildPlatform()`. Per-client HMAC (`HmacSecret` on `BrantaApiOptions`) is still supported.
+`HmacSecret` is obsolete. Prefer a shared API key and `SetChildPlatform()`.
 
-ASP.NET: `services.ConfigureBrantaServices(options)` registers `IBrantaService`.
+ASP.NET: `services.ConfigureBrantaServices(options)` registers `IBrantaService` with a 30s HTTP timeout.
 
 [Changelog](CHANGELOG.md)

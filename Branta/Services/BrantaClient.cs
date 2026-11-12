@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 using System.Net;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -20,12 +20,14 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
 
     public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var httpClient = CreateConfiguredClient(options);
+        var httpClient = httpClientFactory.CreateClient();
+        var baseUri = _defaultOptions.GetUri(options);
+        var url = new Uri(baseUri, $"/v2/payments/{Uri.EscapeDataString(destinationValue)}");
 
         HttpResponseMessage response;
         try
         {
-            response = await httpClient.GetAsync($"/v2/payments/{Uri.EscapeDataString(destinationValue)}", cancellationToken);
+            response = await httpClient.GetAsync(url, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -36,43 +38,72 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
             throw new IncompleteError(ex.Message);
         }
 
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        using (response)
         {
-            return [];
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                await DrainAsync(response, cancellationToken);
+                return [];
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                await DrainAsync(response, cancellationToken);
+                throw new IncompleteError(response.StatusCode.ToString());
+            }
+
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrEmpty(body))
+            {
+                return [];
+            }
+
+            List<Payment> payments;
+            try
+            {
+                using var document = JsonDocument.Parse(body);
+                if (document.RootElement.ValueKind != JsonValueKind.Array)
+                {
+                    // Match JS/Kotlin/Swift: non-array 200 bodies decode as an empty list.
+                    payments = [];
+                }
+                else
+                {
+                    payments = JsonSerializer.Deserialize<List<Payment>>(body, _jsonOptions) ?? [];
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException)
+            {
+                // Malformed JSON or a bad row shape — unfinished lookup, not a crash.
+                throw new IncompleteError("MalformedResponse");
+            }
+
+            VerifyLogoUrls(baseUri, payments);
+
+            return payments;
         }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new IncompleteError(response.StatusCode.ToString());
-        }
-
-        if (response.Content.Headers.ContentLength == 0)
-        {
-            return [];
-        }
-
-        var payments = await response.Content.ReadFromJsonAsync<List<Payment>>(_jsonOptions, cancellationToken) ?? [];
-
-        VerifyLogoUrls(httpClient, payments);
-
-        return payments;
     }
 
     public async Task<Payment?> PostPaymentAsync(Payment payment, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var httpClient = CreateConfiguredClient(options, requireApiKey: true);
+        var httpClient = httpClientFactory.CreateClient();
+        var baseUri = _defaultOptions.GetUri(options);
+        var apiKey = _defaultOptions.GetApiKey(options)
+            ?? throw new BrantaPaymentException("Unauthorized");
 
         var json = JsonSerializer.Serialize(payment, _jsonOptions);
-        var request = new HttpRequestMessage(HttpMethod.Post, "/v2/payments")
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(baseUri, "/v2/payments"))
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
-        SetHmacHeaders(request, json, httpClient, options);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        SetHmacHeaders(request, json, baseUri, options);
 
-        var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
+            await DrainAsync(response, cancellationToken);
             throw new BrantaPaymentException(response.StatusCode.ToString());
         }
 
@@ -87,37 +118,26 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
 
     public async Task<bool> IsApiKeyValidAsync(BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var httpClient = CreateConfiguredClient(options, requireApiKey: true);
+        var httpClient = httpClientFactory.CreateClient();
+        var baseUri = _defaultOptions.GetUri(options);
+        var apiKey = _defaultOptions.GetApiKey(options)
+            ?? throw new BrantaPaymentException("Unauthorized");
 
-        var response = await httpClient.GetAsync("/v2/api-keys/health-check", cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(baseUri, "/v2/api-keys/health-check"));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        await DrainAsync(response, cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
-    private HttpClient CreateConfiguredClient(BrantaApiOptions? options, bool requireApiKey = false)
-    {
-        var httpClient = httpClientFactory.CreateClient();
-        httpClient.BaseAddress = _defaultOptions.GetUri(options);
-
-        if (requireApiKey)
-        {
-            var apiKey = _defaultOptions.GetApiKey(options)
-                ?? throw new BrantaPaymentException("Unauthorized");
-
-            httpClient.DefaultRequestHeaders.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-        }
-
-        return httpClient;
-    }
-
-    private void SetHmacHeaders(HttpRequestMessage request, string json, HttpClient httpClient, BrantaApiOptions? options)
+    private void SetHmacHeaders(HttpRequestMessage request, string json, Uri baseUri, BrantaApiOptions? options)
     {
         var hmacSecret = _defaultOptions.GetHmacSecret(options);
         if (hmacSecret == null) return;
 
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        var baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
+        var baseUrl = baseUri.ToString().TrimEnd('/');
         var message = $"POST|{baseUrl}/v2/payments|{json}|{timestamp}";
 
         var keyBytes = Encoding.UTF8.GetBytes(hmacSecret);
@@ -130,11 +150,9 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
         request.Headers.Add("X-HMAC-Timestamp", timestamp);
     }
 
-    private static void VerifyLogoUrls(HttpClient httpClient, List<Payment> payments)
+    private static void VerifyLogoUrls(Uri baseUri, List<Payment> payments)
     {
-        var baseOrigin = httpClient.BaseAddress?.GetLeftPart(UriPartial.Authority);
-
-        if (baseOrigin == null) return;
+        var baseOrigin = baseUri.GetLeftPart(UriPartial.Authority);
 
         foreach (var payment in payments)
         {
@@ -155,6 +173,19 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
             logoUri.GetLeftPart(UriPartial.Authority) != baseOrigin)
         {
             throw new BrantaPaymentException($"{fieldName} domain does not match the configured API domain");
+        }
+    }
+
+    private static async Task DrainAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.Content == null) return;
+        try
+        {
+            await response.Content.CopyToAsync(Stream.Null, cancellationToken);
+        }
+        catch
+        {
+            // Best-effort drain so the connection can return to the pool.
         }
     }
 }

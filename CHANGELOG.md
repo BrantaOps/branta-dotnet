@@ -4,7 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.3.0] - 2026-11-12
+
+### Added
+- Multi-rail stablecoin destination types `UsdtEthereum`, `UsdcEthereum`, `UsdtBsc`, `UsdcBsc`, `UsdtTron`, `UsdtTon`, `UsdtSolana`, `UsdcSolana`. `AddPaymentAsync` encrypts them with a random secret. `VerifyAsync` parses `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` URIs with `branta_id` / `branta_secret`, match-if-any within the scheme's family. A bare address is `Unknown`. Token is on `MatchedDestinations[].Type`, not the URI scheme.
+
+### Changed
+- **Breaking for 4.2.0 callers:** `DestinationTypes` / family lists / `IsSecretKeyAddress` are `internal` (match JS/Python/Dart/Swift/Kotlin consumer surface).
+- Malformed GET JSON / bad payment rows map to `Incomplete` (not a thrown decode error). Non-array 200 bodies decode as an empty list.
+- Default `HttpClient` uses a 30s timeout so hung networks become `Incomplete` on verify.
+- HTTP responses are disposed on every path; the non-DI constructor shares one pooled `HttpClient` (absolute URIs / per-request auth — no BaseAddress mutation).
+- `HmacSecret` on `BrantaApiOptions` is obsolete; prefer a shared `ApiKey` with `PaymentBuilder.SetChildPlatform`.
+
+### Removed
+- **Breaking for 4.2.0 callers:** `DestinationTypes.IsPolygonEvm` (superseded by `SecretKeyUriFamilies` / `IsSecretKeyAddress`).
+
+### Notes
+- `usdc_ton` is deferred until a platform names a concrete TON USDC jetton. Matches `@branta-ops/branta` / Python / Dart / Swift / Kotlin 4.3.0.
 
 ## [4.2.0] - 2026-11-10
 

@@ -9,7 +9,7 @@ internal class QrDestination
 
     /// <summary>
     /// Known rail type when the scheme or payload names one (e.g. bitcoin).
-    /// Not set for <c>pol:</c> — token comes from the matched payment destination.
+    /// Not set for chain URI schemes (<c>pol:</c>, <c>eth:</c>, <c>tron:</c>, …) — token comes from the matched payment destination.
     /// </summary>
     public DestinationKind? Type { get; init; }
 
@@ -44,14 +44,14 @@ internal class QRParser
         }
 
         var scheme = uri.Scheme.ToLowerInvariant();
-        if (scheme == "pol")
+        if (DestinationTypes.SecretKeyUriFamilies.TryGetValue(scheme, out var secretKeyFamily))
         {
             var dest = GetDestination(text);
             if (dest != null)
             {
                 // Address only — token comes from the matched payment destination after verify.
                 Destinations.Add(new QrDestination { Value = dest, SecretKey = true });
-                ExpectedSecretKeyTypes = DestinationTypes.PolygonEvm;
+                ExpectedSecretKeyTypes = secretKeyFamily;
             }
 
             var queryParams = ParseQueryString(uri.Query);

@@ -32,6 +32,24 @@ public class QRParserTests
         Assert.Equal("1234", result.OnChainEncryptionSecret);
     }
 
+    [Theory]
+    [InlineData("eth")]
+    [InlineData("bsc")]
+    [InlineData("tron")]
+    [InlineData("ton")]
+    [InlineData("sol")]
+    public void QRParser_ChainUri_IsAddressOnlyAndMapsToSchemeFamily(string scheme)
+    {
+        var result = new QRParser($"{scheme}:someaddress?value=1&branta_id=enc&branta_secret=sec");
+
+        Assert.Equal("someaddress", result.Destination);
+        Assert.Null(result.DestinationType);
+        Assert.True(result.Destinations[0].SecretKey);
+        Assert.Equal(DestinationTypes.SecretKeyUriFamilies[scheme], result.ExpectedSecretKeyTypes);
+        Assert.Equal("enc", result.OnChainEncryptionText);
+        Assert.Equal("sec", result.OnChainEncryptionSecret);
+    }
+
     [Fact]
     public void QRParser_PolUriWithoutQuery_StillMapsToPolygonEvmFamily()
     {
