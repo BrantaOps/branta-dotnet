@@ -103,59 +103,69 @@ public class StagingPostTests
         Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(qr)).Status);
     }
 
-    [LivePostFact]
-    public async Task UsdtPolygon_PostEncryptsAndVerifies()
+    private const string Deposit = "0xAbCdEf0123456789aBcDeF0123456789AbCdEf01";
+
+    private static string TransferUri(DestinationType type, string encrypted, string secret)
     {
-        const string address = "0x278297528c32eCa01295B0d2135984d3442ec963";
-        const string swapped = "0x1111111111111111111111111111111111111111";
-        var posted = await _service.AddPaymentAsync(new PaymentBuilder()
-            .SetDescription($"dotnet usdt_polygon {Guid.NewGuid():N}")
-            .AddDestination(address, DestinationType.UsdtPolygon)
-            .SetTtl(120)
-            .Build());
-
-        Assert.Equal(DestinationType.UsdtPolygon, posted.Payment.Destinations[0].Type);
-        var enc = Uri.EscapeDataString(posted.Payment.Destinations[0].Value);
-        var match = await _service.VerifyAsync(
-            $"pol:{address}?value=50&currency=USD&branta_id={enc}&branta_secret={posted.Secret}");
-        Assert.Equal(VerifyStatus.Match, match.Status);
-        Assert.NotNull(match.MatchedDestinations);
-        Assert.Single(match.MatchedDestinations!);
-        Assert.Equal(DestinationType.UsdtPolygon, match.MatchedDestinations[0].Type);
-
-        Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(
-            $"pol:{address.ToLowerInvariant()}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
-        Assert.Equal(VerifyStatus.Tampered, (await _service.VerifyAsync(
-            $"pol:{swapped}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
-        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync(address)).Status);
-        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync($"pol:{address}?value=50")).Status);
+        var rail = DestinationTypes.EvmTokenRails.Single(r => r.Type == type);
+        return $"ethereum:{rail.Contract}@{rail.ChainId}/transfer?address={Deposit}&uint256=50000" +
+               $"&branta_id={Uri.EscapeDataString(encrypted)}&branta_secret={secret}";
     }
 
     [LivePostFact]
-    public async Task UsdcPolygon_PostEncryptsAndVerifies()
+    public async Task Erc681_DualTokenSameDeposit_BindsOnlyTheScannedToken()
     {
-        const string address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B";
-        const string swapped = "0x1111111111111111111111111111111111111111";
         var posted = await _service.AddPaymentAsync(new PaymentBuilder()
-            .SetDescription($"dotnet usdc_polygon {Guid.NewGuid():N}")
-            .AddDestination(address, DestinationType.UsdcPolygon)
+            .AddDestination(Deposit, DestinationType.UsdtBase)
+            .AddDestination(Deposit, DestinationType.UsdcBase)
             .SetTtl(120)
             .Build());
 
-        Assert.Equal(DestinationType.UsdcPolygon, posted.Payment.Destinations[0].Type);
-        var enc = Uri.EscapeDataString(posted.Payment.Destinations[0].Value);
-        var match = await _service.VerifyAsync(
-            $"pol:{address}?value=50&currency=USD&branta_id={enc}&branta_secret={posted.Secret}");
-        Assert.Equal(VerifyStatus.Match, match.Status);
-        Assert.NotNull(match.MatchedDestinations);
-        Assert.Single(match.MatchedDestinations!);
-        Assert.Equal(DestinationType.UsdcPolygon, match.MatchedDestinations[0].Type);
+        foreach (var type in new[] { DestinationType.UsdtBase, DestinationType.UsdcBase })
+        {
+            var enc = posted.Payment.Destinations.First(d => d.Type == type).Value;
+            var result = await _service.VerifyAsync(TransferUri(type, enc, posted.Secret));
+            Assert.Equal(VerifyStatus.Match, result.Status);
+            Assert.Single(result.MatchedDestinations!);
+            Assert.Equal(type, result.MatchedDestinations![0].Type);
+        }
+    }
 
-        Assert.Equal(VerifyStatus.Match, (await _service.VerifyAsync(
-            $"pol:{address.ToLowerInvariant()}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
-        Assert.Equal(VerifyStatus.Tampered, (await _service.VerifyAsync(
-            $"pol:{swapped}?branta_id={enc}&branta_secret={posted.Secret}")).Status);
-        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync(address)).Status);
-        Assert.Equal(VerifyStatus.Unknown, (await _service.VerifyAsync($"pol:{address}?value=50")).Status);
+    [LivePostFact]
+    public async Task Erc681_UsdcScanAgainstUsdtOnlyPayment_IsUnknown()
+    {
+        var posted = await _service.AddPaymentAsync(new PaymentBuilder()
+            .AddDestination(Deposit, DestinationType.UsdtBase)
+            .SetTtl(120)
+            .Build());
+
+        var result = await _service.VerifyAsync(
+            TransferUri(DestinationType.UsdcBase, posted.Payment.Destinations[0].Value, posted.Secret));
+        Assert.Equal(VerifyStatus.Unknown, result.Status);
+    }
+
+    [LivePostFact]
+    public async Task Erc681_BitcoinAndEvmInOnePayment_EachScanBindsItsOwnRail()
+    {
+        const string bitcoin = "bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr";
+        var posted = await _service.AddPaymentAsync(new PaymentBuilder()
+            .AddDestination(bitcoin, DestinationType.BitcoinAddress)
+            .AddDestination(Deposit, DestinationType.UsdtPolygon)
+            .SetTtl(120)
+            .Build());
+
+        var btcEnc = posted.Payment.Destinations.First(d => d.Type == DestinationType.BitcoinAddress).Value;
+        var evmEnc = posted.Payment.Destinations.First(d => d.Type == DestinationType.UsdtPolygon).Value;
+
+        var btc = await _service.VerifyAsync(
+            $"bitcoin:{bitcoin}?branta_id={Uri.EscapeDataString(btcEnc)}&branta_secret={posted.Secret}");
+        Assert.Equal(VerifyStatus.Match, btc.Status);
+        Assert.Single(btc.MatchedDestinations!);
+        Assert.Equal(DestinationType.BitcoinAddress, btc.MatchedDestinations![0].Type);
+
+        var evm = await _service.VerifyAsync(TransferUri(DestinationType.UsdtPolygon, evmEnc, posted.Secret));
+        Assert.Equal(VerifyStatus.Match, evm.Status);
+        Assert.Single(evm.MatchedDestinations!);
+        Assert.Equal(DestinationType.UsdtPolygon, evm.MatchedDestinations![0].Type);
     }
 }

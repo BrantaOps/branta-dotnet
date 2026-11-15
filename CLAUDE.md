@@ -16,7 +16,7 @@ Public API lives in `namespace Branta` (plus DI extension under `Microsoft.Exten
 - `PaymentBuilder`, `Payment`, `Destination`, `Platform`, `VerifyResult` / `VerifyStatus` (including `MatchedDestinations` on Match), `AddPaymentResult`.
 - `BrantaApiOptions`, `BrantaEnvironment`, `DestinationType`, `BrantaPaymentException`.
 
-Do **not** make public: `BrantaClient`, `QRParser`, AES helpers, `DestinationTypes` (family lists / `SecretKeyUriFamilies` / `IsSecretKeyAddress`), `IncompleteError`, or `TamperedError`. Prefer `internal`. `PublicApiTests` locks the exported surface with reflection.
+Do **not** make public: `BrantaClient`, `QRParser`, AES helpers, `DestinationTypes` (the rail table `EvmTokenRails` / `EvmTokenType` / `IsSecretKeyAddress`), `IncompleteError`, or `TamperedError`. Prefer `internal`. `PublicApiTests` locks the exported surface with reflection.
 
 `ConfigureBrantaServices(BrantaApiOptions)` is the DI entry point.
 
@@ -28,14 +28,14 @@ Do **not** make public: `BrantaClient`, `QRParser`, AES helpers, `DestinationTyp
 - Release: bump `<AssemblyVersion>` in `Branta/Branta.csproj`, build in Release, upload `Branta/bin/Release/Branta.X.X.X.nupkg` to nuget.org.
 
 ### Key behaviors to preserve
-- **Encrypt everything.** On-chain lookups need `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. Stablecoin rails (`usdt_polygon` … `usdc_solana`) use chain URIs (`pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, `sol:`; internal `DestinationTypes.SecretKeyUriFamilies`) with the same secret-key pattern as bitcoin; token is on `MatchedDestinations[].Type`, not the URI scheme. A bare address is `Unknown`. No `usdc_ton` yet.
+- **Encrypt everything.** On-chain lookups need `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. EVM USDT/USDC (`usdt_polygon` … `usdc_arbitrum`, including `usdt_base`, `usdc_base`, `usdt_arbitrum`, `usdc_arbitrum`) verify as ERC-681: `ethereum:<contract>@<chainId>/transfer?address=<deposit>` plus `branta_id` / `branta_secret`. Chain id plus contract select one destination type (internal `DestinationTypes.EvmTokenRails`). `uint256` is not bound. `pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` do not verify and do not GET. `AddPaymentAsync` still encrypts `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana`. A scan binds only the destination type its chain id and contract name. Token is on `MatchedDestinations[].Type`. A bare address is `Unknown`. No `usdc_ton` yet.
 - **`VerifyUrl` is always returned**, including on a miss, tamper, or incomplete lookup.
 - **`VerifyAsync` statuses:** `Match` (show the card), `Unknown` (not in Branta / 404), `Tampered` (destination altered), `Incomplete` (5xx, 429, unreachable, timeout, or malformed GET body). Do not treat incomplete as unknown. Logo-domain mismatches still throw `BrantaPaymentException`.
 - **`MatchedDestinations` on Match** — wallets send from that list, not by filtering `Payments[].Destinations`.
 - **Derived-key bind:** a Guardrail hit is not a match unless a destination of that type decrypts.
 - **`HmacSecret` is obsolete** — shared `ApiKey` + `SetChildPlatform` is the parent-platform path.
 - Default HTTP timeout is 30s. CI gates line coverage at ≥80%.
-- Keep parity with `@branta-ops/branta` / Swift / Kotlin 4.3.0.
+- Keep parity with `@branta-ops/branta` / Swift / Kotlin / branta-go / branta-rust 4.4.0.
 
 ### Conventions
 - `BrantaApiOptions` can be passed per-call to override DI-registered defaults.
