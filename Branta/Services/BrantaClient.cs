@@ -64,7 +64,7 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
                 using var document = JsonDocument.Parse(body);
                 if (document.RootElement.ValueKind != JsonValueKind.Array)
                 {
-                    // Match JS/Kotlin/Swift: non-array 200 bodies decode as an empty list.
+                    // Match the other SDKs: non-array 200 bodies decode as an empty list.
                     payments = [];
                 }
                 else
