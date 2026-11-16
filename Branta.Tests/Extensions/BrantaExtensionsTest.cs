@@ -148,6 +148,17 @@ public class BrantaExtensionsTest
         Assert.Matches(new Regex("^[0-9A-F]{64}$"), hash);
     }
 
+    // Fixed vectors, asserted by every Branta SDK.
+    [Fact]
+    public void ToNormalizedHash_FixedVector_MatchesEverySdk()
+    {
+        Assert.Equal("9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08", "test".ToNormalizedHash());
+        Assert.Equal("9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08", "TEST".ToNormalizedHash());
+        Assert.Equal(
+            "261D7974DC0541402A222AC17973D3FF412878C1C179FCD4D866094D610B4496",
+            "LNBC10U1PTestInvoice".ToNormalizedHash());
+    }
+
     [Fact]
     public void ToNormalizedHash_IsCaseInsensitive()
     {
