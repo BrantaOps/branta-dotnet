@@ -70,6 +70,12 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
                 else
                 {
                     payments = JsonSerializer.Deserialize<List<Payment>>(body, _jsonOptions) ?? [];
+                    // The deserializer accepts JSON null for a row, a destinations list, or a destination.
+                    // None of them can be read, so the lookup did not finish.
+                    if (payments.Any(p => p is null || p.Destinations is null || p.Destinations.Any(d => d is null)))
+                    {
+                        throw new JsonException("Null payment or destination.");
+                    }
                 }
             }
             catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException)

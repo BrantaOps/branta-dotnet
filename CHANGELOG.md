@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.4.0] - 2026-11-15
+## [4.4.0] - 2026-11-17
 
 ### Added
 - `DestinationType.UsdtBase`, `UsdcBase`, `UsdtArbitrum`, and `UsdcArbitrum`. `AddPaymentAsync` encrypts them with a random secret.
@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `ethereum://` authority forms, `/approve`, `/transferFrom`, path parameters, ENS names, a missing chain id, hex or signed chain ids, and a missing or malformed `address` are untyped and `Unknown`. A chain id of more than 15 digits is rejected.
 - The query is read before any URL fragment. A `?` after a `#` belongs to the fragment.
 - Matches `@branta-ops/branta` / Python / Dart / Swift / Kotlin / branta-go / branta-rust 4.4.0.
+
+### Fixed
+- `VerifyAsync` no longer throws `NullReferenceException` when a GET body holds a JSON `null` payment row (`[null]`), a `null` `destinations` list, or a `null` destination. The lookup did not finish, so the result is `Incomplete` with a `VerifyUrl`, like any other malformed body.
 
 ## [4.3.0] - 2026-11-12
 
