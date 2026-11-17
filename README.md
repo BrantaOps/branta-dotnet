@@ -7,7 +7,7 @@ Use `VerifyAsync` on send and `AddPaymentAsync` on receive. Status handling and 
 ## Install
 
 ```bash
-dotnet add package Branta --version 4.4.0
+dotnet add package Branta
 ```
 
 ## Send
