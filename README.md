@@ -7,7 +7,7 @@ Use `VerifyAsync` on send and `AddPaymentAsync` on receive. Status handling and 
 ## Install
 
 ```bash
-dotnet add package Branta --version 4.3.0
+dotnet add package Branta --version 4.4.0
 ```
 
 ## Send
@@ -24,7 +24,7 @@ switch (result.Status)
     case VerifyStatus.Match:
         // Show the card for result.Payments[0]. Link it to result.VerifyUrl.
         // What to send is result.MatchedDestinations — each has Type + plaintext Value.
-        // e.g. UsdtEthereum / UsdcSolana / BitcoinAddress. Do not infer token from the URI scheme.
+        // e.g. UsdtBase / UsdcArbitrum / BitcoinAddress.
         break;
     case VerifyStatus.Unknown:
         // Not in Branta — show nothing.
@@ -39,7 +39,7 @@ switch (result.Status)
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Stablecoin rails need a chain URI with the same params — `pol:` (`usdt_polygon`, `usdc_polygon`), `eth:` (`usdt_ethereum`, `usdc_ethereum`), `bsc:` (`usdt_bsc`, `usdc_bsc`), `tron:` (`usdt_tron`), `ton:` (`usdt_ton`), `sol:` (`usdt_solana`, `usdc_solana`). Token is on `MatchedDestinations[].Type`, not the URI scheme; verify is match-if-any within the scheme's family. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
+On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. EVM USDT and USDC (Ethereum, Polygon, BNB Smart Chain, Base, Arbitrum) verify as an ERC-681 transfer, `ethereum:<contract>@<chainId>/transfer?address=<deposit>`, with `branta_id` / `branta_secret`. The chain id and token contract select one destination type, and `uint256` is not bound. The `pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` schemes do not verify. `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana` encrypt on `AddPaymentAsync` but have no verify URI yet. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
 
 A 404 is `unknown`. 5xx, 429, no network, a timeout, or a malformed GET body is `incomplete`. A logo on the wrong origin throws.
 
@@ -54,7 +54,8 @@ var payment = new PaymentBuilder()
     .SetDescription("Invoice #12345")
     .AddDestination("bc1q…", DestinationType.BitcoinAddress)
     // Stablecoin: pass the type explicitly — bare addresses are not auto-detected.
-    // .AddDestination("0x…", DestinationType.UsdtEthereum)
+    // .AddDestination("0x…", DestinationType.UsdtBase)
+    // .AddDestination("0x…", DestinationType.UsdcArbitrum)
     .SetTtl(600) // seconds
     .Build();
 
@@ -62,7 +63,7 @@ var posted = await service.AddPaymentAsync(payment);
 // posted.Secret, posted.VerifyUrl, posted.Payment
 ```
 
-Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR (`bitcoin:…`, `pol:…`, `eth:…`, …).
+Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR (`bitcoin:…` or an ERC-681 `ethereum:…/transfer` URI).
 
 `HmacSecret` is obsolete. Prefer a shared API key and `SetChildPlatform()`.
 

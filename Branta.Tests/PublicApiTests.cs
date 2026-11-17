@@ -43,6 +43,7 @@ public class PublicApiTests
     {
         var exported = typeof(BrantaService).Assembly.GetExportedTypes().Select(t => t.Name).ToHashSet();
         Assert.DoesNotContain("DestinationTypes", exported);
+        Assert.DoesNotContain("EvmTokenRail", exported);
         Assert.DoesNotContain("BrantaClient", exported);
         Assert.DoesNotContain("QRParser", exported);
         Assert.DoesNotContain("AesEncryption", exported);
@@ -51,9 +52,9 @@ public class PublicApiTests
     }
 
     [Fact]
-    public void DestinationType_HasFourteenMembers_AndNoUsdcTon()
+    public void DestinationType_HasEighteenMembers_AndNoUsdcTon()
     {
-        Assert.Equal(14, Enum.GetValues<DestinationType>().Length);
+        Assert.Equal(18, Enum.GetValues<DestinationType>().Length);
         Assert.Equal(DestinationType.UsdtTon, Enum.Parse<DestinationType>("UsdtTon"));
         Assert.Throws<ArgumentException>(() => Enum.Parse<DestinationType>("UsdcTon"));
         Assert.Null(DestinationTypeConverter.TryParse("usdc_ton"));
@@ -88,6 +89,9 @@ public class PublicApiTests
         Assert.NotNull(type);
         Assert.False(type!.IsPublic);
         Assert.True(type.IsNotPublic);
-        Assert.Null(type.GetMethod("IsPolygonEvm", BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic));
+        // The rail table and its helpers stay internal.
+        Assert.Null(type.GetMethod("EvmTokenType", BindingFlags.Public | BindingFlags.Static));
+        Assert.Null(type.GetField("EvmTokenRails", BindingFlags.Public | BindingFlags.Static));
+        Assert.Null(type.GetMethod("IsSecretKeyAddress", BindingFlags.Public | BindingFlags.Static));
     }
 }

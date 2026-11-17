@@ -316,7 +316,7 @@ public class BrantaService : IBrantaService
 
             if (destination.Type == null || !DestinationTypes.IsSecretKeyAddress(destination.Type.Value))
                 continue;
-            // Outside this QR's rail family (e.g. bitcoin when scanning pol:) — leave encrypted.
+            // Outside the type this scan names (e.g. bitcoin when scanning an ERC-681 transfer) — leave encrypted.
             if (expectedOnChainTypes != null && !expectedOnChainTypes.Contains(destination.Type.Value))
                 continue;
             if (encryptionKey == null) continue;
@@ -333,7 +333,7 @@ public class BrantaService : IBrantaService
             }
 
             decryptedExpectedRail = true;
-            // Match-if-any within the family: a sibling rail with a different address stays encrypted.
+            // A same-type sibling with a different address stays encrypted.
             if (expectedOnChainAddress != null && !AddressesMatch(decrypted, expectedOnChainAddress))
             {
                 continue;
@@ -347,7 +347,7 @@ public class BrantaService : IBrantaService
             }
             TryDecryptMetadata(payment, destination, encryptionKey);
         }
-        // Tampered only when a family rail decrypted and none matched the scanned address.
+        // Tampered only when a destination of the scanned type decrypted and none matched the scanned address.
         if (expectedOnChainAddress != null && !onChainBound && decryptedExpectedRail)
         {
             throw new TamperedError();

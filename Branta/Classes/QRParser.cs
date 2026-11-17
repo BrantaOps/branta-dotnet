@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using DestinationKind = Branta.DestinationType;
 
@@ -8,8 +9,7 @@ internal class QrDestination
     public required string Value { get; init; }
 
     /// <summary>
-    /// Known rail type when the scheme or payload names one (e.g. bitcoin).
-    /// Not set for chain URI schemes (<c>pol:</c>, <c>eth:</c>, <c>tron:</c>, …) — token comes from the matched payment destination.
+    /// Known rail type when the scheme or payload names one (e.g. bitcoin, or the token an ERC-681 chain id and contract name).
     /// </summary>
     public DestinationKind? Type { get; init; }
 
@@ -26,8 +26,8 @@ internal class QRParser
     public string? OnChainEncryptionSecret { get; private set; }
 
     /// <summary>
-    /// Destination types <c>VerifyAsync</c> may bind for this QR's scheme (match-if-any).
-    /// Set from the URI scheme — not from a token stamped on the address.
+    /// Destination types this scan may decrypt. An ERC-681 scan sets exactly one type, from its chain id
+    /// and token contract. A bitcoin scan sets <c>BitcoinAddress</c>.
     /// </summary>
     public IReadOnlyList<DestinationKind>? ExpectedSecretKeyTypes { get; private set; }
 
@@ -37,6 +37,27 @@ internal class QRParser
     {
         var text = NormalizeQrText(qrText);
 
+        if (text.StartsWith("ethereum:", StringComparison.OrdinalIgnoreCase))
+        {
+            var transfer = ParseErc681(text);
+            if (transfer == null)
+            {
+                // Not a supported token transfer. Reads no branta params and cannot verify.
+                Destinations.Add(new QrDestination { Value = text });
+                return;
+            }
+
+            Destinations.Add(new QrDestination { Value = transfer.Value.Address, Type = transfer.Value.Type, SecretKey = true });
+            ExpectedSecretKeyTypes = [transfer.Value.Type];
+
+            var transferParams = ParseQueryString(ExtractQuery(text));
+            if (transferParams.TryGetValue("branta_id", out var transferId))
+                OnChainEncryptionText = transferId;
+            if (transferParams.TryGetValue("branta_secret", out var transferSecret))
+                OnChainEncryptionSecret = transferSecret;
+            return;
+        }
+
         if (!Uri.TryCreate(text, UriKind.Absolute, out var uri))
         {
             Destinations.Add(new QrDestination { Value = text, Type = DetectDestinationType(text) });
@@ -44,24 +65,6 @@ internal class QRParser
         }
 
         var scheme = uri.Scheme.ToLowerInvariant();
-        if (DestinationTypes.SecretKeyUriFamilies.TryGetValue(scheme, out var secretKeyFamily))
-        {
-            var dest = GetDestination(text);
-            if (dest != null)
-            {
-                // Address only — token comes from the matched payment destination after verify.
-                Destinations.Add(new QrDestination { Value = dest, SecretKey = true });
-                ExpectedSecretKeyTypes = secretKeyFamily;
-            }
-
-            var queryParams = ParseQueryString(uri.Query);
-            if (queryParams.TryGetValue("branta_id", out var brantaId))
-                OnChainEncryptionText = brantaId;
-            if (queryParams.TryGetValue("branta_secret", out var brantaSecret))
-                OnChainEncryptionSecret = brantaSecret;
-            return;
-        }
-
         if (scheme is "bitcoin" or "lightning")
         {
             var dest = GetDestination(text);
@@ -145,6 +148,68 @@ internal class QRParser
             return;
         }
         Destinations.Add(new QrDestination { Value = value, Type = type, SecretKey = onChain });
+    }
+
+    /// <summary>The query of a URI, read before any fragment. A "?" after a "#" belongs to the fragment.</summary>
+    private static string ExtractQuery(string text)
+    {
+        var hash = text.IndexOf('#');
+        if (hash >= 0) text = text[..hash];
+        var after = text[(text.IndexOf(':') + 1)..];
+        var question = after.IndexOf('?');
+        return question < 0 ? "" : after[(question + 1)..];
+    }
+
+    /// <summary>Path of an <c>ethereum:</c> URI, without scheme, query, or fragment. One leading slash is dropped.</summary>
+    private static string Erc681Path(string text)
+    {
+        var after = text[(text.IndexOf(':') + 1)..];
+        var end = after.IndexOfAny(['?', '#']);
+        var path = end < 0 ? after : after[..end];
+        return path.StartsWith('/') ? path[1..] : path;
+    }
+
+    private static bool IsEvmAddress(string value) =>
+        value.Length == 42
+        && value[0] == '0'
+        && (value[1] == 'x' || value[1] == 'X')
+        && value.Skip(2).All(char.IsAsciiHexDigit);
+
+    /// <summary>
+    /// ERC-681 token transfer <c>ethereum:&lt;contract&gt;@&lt;chainId&gt;/transfer?address=&lt;deposit&gt;</c>.
+    /// The chain id and contract select one destination type. <c>uint256</c> is not bound.
+    /// Returns null for anything else: authority forms, other functions, ENS, hex or signed chain ids,
+    /// an unknown rail, or a missing or malformed <c>address</c>.
+    /// </summary>
+    private static (DestinationKind Type, string Address)? ParseErc681(string text)
+    {
+        var path = Erc681Path(text);
+        var at = path.IndexOf('@');
+        if (at < 0) return null;
+
+        var contract = path[..at];
+        var rest = path[(at + 1)..];
+        if (contract.Length != 42
+            || !contract.StartsWith("0x", StringComparison.Ordinal)
+            || !contract.Skip(2).All(char.IsAsciiHexDigit))
+            return null;
+
+        const string function = "/transfer";
+        if (!rest.EndsWith(function, StringComparison.Ordinal)) return null;
+        var chain = rest[..^function.Length];
+        if (chain.Length == 0 || !chain.All(char.IsAsciiDigit)) return null;
+
+        var digits = chain.TrimStart('0');
+        // No supported chain id has more than 15 digits.
+        if (digits.Length > 15) return null;
+        var chainId = digits.Length == 0 ? 0 : long.Parse(digits, CultureInfo.InvariantCulture);
+
+        var type = DestinationTypes.EvmTokenType(chainId, contract);
+        if (type == null) return null;
+
+        var query = ParseQueryString(ExtractQuery(text));
+        if (!query.TryGetValue("address", out var address) || !IsEvmAddress(address)) return null;
+        return (type.Value, address);
     }
 
     private static string? GetDestination(string text)

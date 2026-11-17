@@ -211,6 +211,44 @@ public class BrantaClientTest
         Assert.Equal("MalformedResponse", ex.Message);
     }
 
+    [Theory]
+    [InlineData("[null]")]
+    [InlineData("""[{"destinations":null}]""")]
+    [InlineData("""[{"destinations":[null]}]""")]
+    [InlineData("""[{"destinations":[{"value":"x"},null]}]""")]
+    [InlineData("""[{"destinations":[{"value":"x"}]}, null]""")]
+    public async Task GetPaymentsAsync_NullRowOrDestination_ThrowsIncompleteError(string json)
+    {
+        var client = CreateClient(json);
+
+        var ex = await Assert.ThrowsAsync<IncompleteError>(() => client.GetPaymentsAsync("value"));
+        Assert.Equal("MalformedResponse", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("[null]")]
+    [InlineData("""[{"destinations":null}]""")]
+    [InlineData("""[{"destinations":[null]}]""")]
+    public async Task VerifyAsync_NullRowOrDestination_IsIncompleteWithVerifyUrl(string json)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        var factoryMock = new Mock<IHttpClientFactory>();
+        factoryMock.Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient(new FakeHttpMessageHandler(response)));
+        var service = new BrantaService(
+            new BrantaApiOptions { Environment = BrantaEnvironment.Localhost },
+            factoryMock.Object);
+
+        var result = await service.VerifyAsync(
+            "bitcoin:bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr?branta_id=abc&branta_secret=secret");
+
+        Assert.Equal(VerifyStatus.Incomplete, result.Status);
+        Assert.StartsWith($"{SameOrigin}/v2/verify/abc", result.VerifyUrl);
+    }
+
     [Fact]
     public async Task GetPaymentsAsync_Timeout_ThrowsIncompleteError()
     {

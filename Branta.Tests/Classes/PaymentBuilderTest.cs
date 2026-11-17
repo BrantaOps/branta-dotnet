@@ -42,6 +42,10 @@ public class PaymentBuilderTests
     [InlineData(DestinationType.SilentPayment, "silent_payment")]
     [InlineData(DestinationType.UsdtPolygon, "usdt_polygon")]
     [InlineData(DestinationType.UsdcPolygon, "usdc_polygon")]
+    [InlineData(DestinationType.UsdtBase, "usdt_base")]
+    [InlineData(DestinationType.UsdcBase, "usdc_base")]
+    [InlineData(DestinationType.UsdtArbitrum, "usdt_arbitrum")]
+    [InlineData(DestinationType.UsdcArbitrum, "usdc_arbitrum")]
     public void DestinationType_SerializesToCorrectJsonString(DestinationType type, string expected)
     {
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
