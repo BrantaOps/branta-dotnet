@@ -67,8 +67,6 @@ Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invo
 
 `AddPaymentAsync` accepts the types on [Destination types](https://developer.branta.pro/destination-types), and [Encryption](https://developer.branta.pro/setup/receive/encryption) says which key each uses. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
 
-`HmacSecret` is obsolete. Prefer a shared API key and `SetChildPlatform()`.
-
 ASP.NET: `services.ConfigureBrantaServices(options)` registers `IBrantaService` with a 30s HTTP timeout.
 
 [Changelog](CHANGELOG.md)
