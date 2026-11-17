@@ -90,8 +90,6 @@ public class PublicApiTests
         Assert.False(type!.IsPublic);
         Assert.True(type.IsNotPublic);
         // The rail table and its helpers stay internal.
-        Assert.Null(type.GetMethod("IsPolygonEvm", BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic));
-        Assert.Null(type.GetField("SecretKeyUriFamilies", BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic));
         Assert.Null(type.GetMethod("EvmTokenType", BindingFlags.Public | BindingFlags.Static));
         Assert.Null(type.GetField("EvmTokenRails", BindingFlags.Public | BindingFlags.Static));
         Assert.Null(type.GetMethod("IsSecretKeyAddress", BindingFlags.Public | BindingFlags.Static));

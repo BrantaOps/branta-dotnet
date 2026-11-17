@@ -39,8 +39,6 @@ public class BrantaServiceTests
     private const string EncryptedUsdtSolanaAddress = "encrypted-usdt-solana-address";
     private const string UsdcSolanaAddress = "7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf";
     private const string EncryptedUsdcSolanaAddress = "encrypted-usdc-solana-address";
-    private const string SwappedPolygonAddress = "0x1111111111111111111111111111111111111111";
-    private const string SwappedEvmAddress = "0x3333333333333333333333333333333333333333";
     private const string EncryptedUsdtPolygonAddress = "encrypted-usdt-polygon-address";
     private const string EncryptedUsdcPolygonAddress = "encrypted-usdc-polygon-address";
     private const string EncryptedSiblingUsdtPolygonAddress = "encrypted-sibling-usdt-polygon-address";
