@@ -39,7 +39,7 @@ switch (result.Status)
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. EVM USDT and USDC (Ethereum, Polygon, BNB Smart Chain, Base, Arbitrum) verify as an ERC-681 transfer, `ethereum:<contract>@<chainId>/transfer?address=<deposit>`, with `branta_id` / `branta_secret`. The chain id and token contract select one destination type, and `uint256` is not bound. The `pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` schemes do not verify. `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana` encrypt on `AddPaymentAsync` but have no verify URI yet. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
+Pass the scanned or pasted text to `VerifyAsync`. A Bitcoin or EVM stablecoin lookup needs `branta_id` and `branta_secret` in the URI. bolt11, Ark, and silent payments resolve from the value. A bare address is `Unknown`. The full rules are on [Status rules](https://developer.branta.pro/setup/send/status-rules), and supported chains and contracts are on [Destination types](https://developer.branta.pro/destination-types).
 
 A 404 is `unknown`. 5xx, 429, no network, a timeout, or a malformed GET body is `incomplete`. A logo on the wrong origin throws.
 
@@ -64,6 +64,8 @@ var posted = await service.AddPaymentAsync(payment);
 ```
 
 Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR (`bitcoin:…` or an ERC-681 `ethereum:…/transfer` URI).
+
+`AddPaymentAsync` accepts the types on [Destination types](https://developer.branta.pro/destination-types), and [Encryption](https://developer.branta.pro/setup/receive/encryption) says which key each uses. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
 
 `HmacSecret` is obsolete. Prefer a shared API key and `SetChildPlatform()`.
 
