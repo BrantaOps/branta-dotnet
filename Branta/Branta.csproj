@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>Branta SDK</Title>
+    <Description>.NET SDK for Branta: verify a payment destination or register one.</Description>
     <AssemblyVersion>4.4.0</AssemblyVersion>
     <Version>$(AssemblyVersion)</Version>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
