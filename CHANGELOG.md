@@ -16,7 +16,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A scan binds only the destination type named by its chain id and contract. It no longer binds any sibling in a family. A USDC scan against a USDT-only payment is `Unknown`.
 - `ethereum://` authority forms, `/approve`, `/transferFrom`, path parameters, ENS names, a missing chain id, hex or signed chain ids, and a missing or malformed `address` are untyped and `Unknown`. A chain id of more than 15 digits is rejected.
 - The query is read before any URL fragment. A `?` after a `#` belongs to the fragment.
-- Matches `@branta-ops/branta` / Python / Dart / Swift / Kotlin / branta-go / branta-rust 4.4.0.
 
 ### Fixed
 - `VerifyAsync` no longer throws `NullReferenceException` when a GET body holds a JSON `null` payment row (`[null]`), a `null` `destinations` list, or a `null` destination. The lookup did not finish, so the result is `Incomplete` with a `VerifyUrl`, like any other malformed body.
@@ -27,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Multi-rail stablecoin destination types `UsdtEthereum`, `UsdcEthereum`, `UsdtBsc`, `UsdcBsc`, `UsdtTron`, `UsdtTon`, `UsdtSolana`, `UsdcSolana`. `AddPaymentAsync` encrypts them with a random secret. `VerifyAsync` parses `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` URIs with `branta_id` / `branta_secret`, match-if-any within the scheme's family. A bare address is `Unknown`. Token is on `MatchedDestinations[].Type`, not the URI scheme.
 
 ### Changed
-- **Breaking for 4.2.0 callers:** `DestinationTypes` / family lists / `IsSecretKeyAddress` are `internal` (match JS/Python/Dart/Swift/Kotlin consumer surface).
+- **Breaking for 4.2.0 callers:** `DestinationTypes` / family lists / `IsSecretKeyAddress` are `internal`.
 - Malformed GET JSON / bad payment rows map to `Incomplete` (not a thrown decode error). Non-array 200 bodies decode as an empty list.
 - Default `HttpClient` uses a 30s timeout so hung networks become `Incomplete` on verify.
 - HTTP responses are disposed on every path; the non-DI constructor shares one pooled `HttpClient` (absolute URIs / per-request auth — no BaseAddress mutation).
@@ -37,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Breaking for 4.2.0 callers:** `DestinationTypes.IsPolygonEvm` (superseded by `SecretKeyUriFamilies` / `IsSecretKeyAddress`).
 
 ### Notes
-- `usdc_ton` is deferred until a platform names a concrete TON USDC jetton. Matches `@branta-ops/branta` / Python / Dart / Swift / Kotlin 4.3.0.
+- `usdc_ton` is deferred until a platform names a concrete TON USDC jetton.
 
 ## [4.2.0] - 2026-11-10
 
