@@ -33,15 +33,12 @@ switch (result.Status)
         // Destination was altered. Warn. Do not show a verified card.
         break;
     case VerifyStatus.Incomplete:
-        // 5xx, 429, unreachable, timeout, or malformed lookup. Tell the user.
-        // Do not treat as unknown.
+        // Branta could not complete the check. Tell the user. Do not block send.
         break;
 }
 ```
 
 Pass the scanned or pasted text to `VerifyAsync`. A Bitcoin or EVM stablecoin lookup needs `branta_id` and `branta_secret` in the URI. bolt11, Ark, and silent payments resolve from the value. A bare address is `Unknown`. The full rules are on [Status rules](https://developer.branta.pro/setup/send/status-rules), and supported chains and contracts are on [Destination types](https://developer.branta.pro/destination-types).
-
-A 404 is `unknown`. 5xx, 429, no network, a timeout, or a malformed GET body is `incomplete`. A logo on the wrong origin throws.
 
 ## Receive
 
