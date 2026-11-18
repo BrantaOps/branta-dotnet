@@ -2,7 +2,7 @@
 
 .NET SDK for [Branta](https://developer.branta.pro). Targets `net8.0` and `net10.0`.
 
-Use `VerifyAsync` on send and `AddPaymentAsync` on receive. Status handling and parent platforms are in the [developer docs](https://developer.branta.pro).
+Status handling and parent platforms are in the [developer docs](https://developer.branta.pro).
 
 ## Install
 
@@ -15,7 +15,7 @@ dotnet add package Branta
 ```csharp
 using Branta;
 
-var service = new BrantaService(BrantaEnvironment.Production); // Staging everywhere else
+var service = new BrantaService(BrantaEnvironment.Production);
 
 var result = await service.VerifyAsync(input); // scanned QR or pasted text
 
@@ -38,7 +38,7 @@ switch (result.Status)
 }
 ```
 
-Pass the scanned or pasted text to `VerifyAsync`. A Bitcoin or EVM stablecoin lookup needs `branta_id` and `branta_secret` in the URI. bolt11, Ark, and silent payments resolve from the value. A bare address is `Unknown`. The full rules are on [Status rules](https://developer.branta.pro/setup/send/status-rules), and supported chains and contracts are on [Destination types](https://developer.branta.pro/destination-types).
+Rules for each status: [Status rules](https://developer.branta.pro/setup/send/status-rules). Supported types: [Destination types](https://developer.branta.pro/destination-types).
 
 ## Receive
 
@@ -50,19 +50,15 @@ var service = new BrantaService(BrantaEnvironment.Production, apiKey: "<api-key>
 var payment = new PaymentBuilder()
     .SetDescription("Invoice #12345")
     .AddDestination("bc1q…", DestinationType.BitcoinAddress)
-    // Stablecoin: pass the type explicitly — bare addresses are not auto-detected.
-    // .AddDestination("0x…", DestinationType.UsdtBase)
-    // .AddDestination("0x…", DestinationType.UsdcArbitrum)
     .SetTtl(600) // seconds
     .Build();
 
 var posted = await service.AddPaymentAsync(payment);
-// posted.Secret, posted.VerifyUrl, posted.Payment
+// Store posted.Secret with the invoice. Put branta_id and branta_secret on the QR.
+// Link the sender to posted.VerifyUrl.
 ```
 
-Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR (`bitcoin:…` or an ERC-681 `ethereum:…/transfer` URI).
-
-`AddPaymentAsync` accepts the types on [Destination types](https://developer.branta.pro/destination-types), and [Encryption](https://developer.branta.pro/setup/receive/encryption) says which key each uses. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
+`AddPaymentAsync` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
 
 ASP.NET: `services.ConfigureBrantaServices(options)` registers `IBrantaService`.
 
