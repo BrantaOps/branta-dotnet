@@ -24,7 +24,6 @@ switch (result.Status)
     case VerifyStatus.Match:
         // Show the card for result.Payments[0]. Link it to result.VerifyUrl.
         // What to send is result.MatchedDestinations — each has Type + plaintext Value.
-        // e.g. UsdtBase / UsdcArbitrum / BitcoinAddress.
         break;
     case VerifyStatus.Unknown:
         // Not in Branta — show nothing.
