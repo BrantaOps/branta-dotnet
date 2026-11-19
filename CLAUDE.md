@@ -20,7 +20,7 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - The contract's names are `VerifyAsync`, `AddPaymentAsync`, `VerifyStatus` (`Match`, `Unknown`, `Tampered`, `Incomplete`), `MatchedDestinations[].Type`, and `VerifyUrl`.
 - A logo-domain mismatch throws `BrantaPaymentException`.
 - `DestinationType` is only what `AddPaymentAsync` accepts. It also includes `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana`. They can be posted but no URI verifies them, and they are not on the public Destination types page. There is no `usdc_ton`.
-- `HmacSecret` is obsolete. A shared `ApiKey` plus `SetChildPlatform` is the parent-platform path.
+- `HmacSecret` signs `POST /v2/payments` for platforms with Require HMAC on. It is not obsolete. For parent platforms, a shared `ApiKey` plus `SetChildPlatform` replaces the deprecated per-client HMAC flow.
 - Default HTTP timeout is 30s.
 
 ## Solution layout
