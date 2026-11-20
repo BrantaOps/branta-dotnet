@@ -7,9 +7,9 @@ public class BrantaApiOptions
     public string? ApiKey { get; set; }
 
     /// <summary>
-    /// Deprecated parent-platform HMAC. Prefer a shared <see cref="ApiKey"/> with
-    /// <see cref="PaymentBuilder.SetChildPlatform"/>.
+    /// Secret from the Secrets tab in Guardrail. Signs <c>POST /v2/payments</c> with
+    /// <c>X-HMAC-Signature</c> and <c>X-HMAC-Timestamp</c>. Needed when your platform has Require HMAC on.
+    /// Server-side only. See https://developer.branta.pro/setup/receive/hmac-signing
     /// </summary>
-    [Obsolete("Prefer a shared ApiKey with PaymentBuilder.SetChildPlatform.")]
     public string? HmacSecret { get; set; }
 }
