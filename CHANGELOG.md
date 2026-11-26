@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `POST /v2/payments` now sends an `X-Branta-SDK` header (language and SDK version). GETs are unchanged.
+
 ### Changed
 - `HmacSecret` on `BrantaApiOptions` is no longer `[Obsolete]`. Platforms with Require HMAC on need it to sign `AddPaymentAsync`. Only the per-client parent-platform flow is deprecated; a shared `ApiKey` with `SetChildPlatform` replaces it.
 

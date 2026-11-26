@@ -10,6 +10,11 @@ namespace Branta;
 
 internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<BrantaApiOptions> brantaApiOptions) : IBrantaClient
 {
+    internal const string SdkHeaderName = "X-Branta-SDK";
+
+    // dotnet/<major>.<minor>.<build>, read from the assembly so it follows <AssemblyVersion> in Branta.csproj.
+    internal static readonly string SdkHeaderValue = BuildSdkHeaderValue();
+
     private readonly BrantaApiOptions? _defaultOptions = brantaApiOptions?.Value;
 
     private readonly JsonSerializerOptions _jsonOptions = new()
@@ -103,6 +108,7 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Add(SdkHeaderName, SdkHeaderValue);
         SetHmacHeaders(request, json, baseUri, options);
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -135,6 +141,12 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
         using var response = await httpClient.SendAsync(request, cancellationToken);
         await DrainAsync(response, cancellationToken);
         return response.IsSuccessStatusCode;
+    }
+
+    private static string BuildSdkHeaderValue()
+    {
+        var version = typeof(BrantaClient).Assembly.GetName().Version!;
+        return $"dotnet/{version.Major}.{version.Minor}.{Math.Max(version.Build, 0)}";
     }
 
     private void SetHmacHeaders(HttpRequestMessage request, string json, Uri baseUri, BrantaApiOptions? options)
