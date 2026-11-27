@@ -27,6 +27,34 @@ public class BrantaClientTest
         }
     }
 
+    private class CapturingHandler(HttpStatusCode status = HttpStatusCode.OK, string body = "[]") : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            });
+        }
+    }
+
+    private static string ProjectVersion()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Branta", "Branta.csproj")))
+        {
+            dir = dir.Parent;
+        }
+        Assert.NotNull(dir);
+        var csproj = File.ReadAllText(Path.Combine(dir!.FullName, "Branta", "Branta.csproj"));
+        var match = System.Text.RegularExpressions.Regex.Match(csproj, @"<AssemblyVersion>(\d+\.\d+\.\d+)</AssemblyVersion>");
+        Assert.True(match.Success);
+        return match.Groups[1].Value;
+    }
+
     private static BrantaClient CreateClient(HttpMessageHandler handler)
     {
         var factoryMock = new Mock<IHttpClientFactory>();
@@ -295,5 +323,49 @@ public class BrantaClientTest
         var options = new BrantaApiOptions { ApiKey = "key" };
         var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => client.PostPaymentAsync(payment, options));
         Assert.Equal("InternalServerError", ex.Message);
+    }
+
+    [Fact]
+    public async Task PostPaymentAsync_SendsSdkHeader_MatchingProjectVersion()
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK, "");
+        var client = CreateClient(handler);
+        var payment = new Payment
+        {
+            Destinations = [new Destination { Value = "test-destination" }]
+        };
+
+        await client.PostPaymentAsync(payment, new BrantaApiOptions { ApiKey = "key", HmacSecret = "secret" });
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        var value = Assert.Single(request.Headers.GetValues("X-Branta-SDK"));
+        Assert.Equal($"dotnet/{ProjectVersion()}", value);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_DoesNotSendSdkHeader()
+    {
+        var handler = new CapturingHandler();
+        var client = CreateClient(handler);
+
+        await client.GetPaymentsAsync("value");
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.False(request.Headers.Contains("X-Branta-SDK"));
+    }
+
+    [Fact]
+    public async Task IsApiKeyValidAsync_DoesNotSendSdkHeader()
+    {
+        var handler = new CapturingHandler();
+        var client = CreateClient(handler);
+
+        await client.IsApiKeyValidAsync(new BrantaApiOptions { ApiKey = "key" });
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.False(request.Headers.Contains("X-Branta-SDK"));
     }
 }
