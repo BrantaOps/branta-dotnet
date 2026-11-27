@@ -7,10 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `PaymentBuilder.SetBrand(name, logoUrl, logoLightUrl)` and `Payment.Brand`. A brand is the payee a shared-key platform tags a payment with. Responses accept `brand` or `child_platform` (`brand` wins) and populate both `Brand` and the deprecated `ChildPlatform`.
 - `POST /v2/payments` now sends an `X-Branta-SDK` header (language and SDK version). GETs are unchanged.
 
 ### Changed
-- `HmacSecret` on `BrantaApiOptions` is no longer `[Obsolete]`. Platforms with Require HMAC on need it to sign `AddPaymentAsync`. Only the per-client parent-platform flow is deprecated; a shared `ApiKey` with `SetChildPlatform` replaces it.
+- `AddPaymentAsync` now sends `brand` (`name`, `logo_url`, `logo_light_url`) and never `child_platform`. This requires a Branta server that accepts `brand`.
+- The logo-domain mismatch message for a brand reads `brand.logoUrl` / `brand.logoLightUrl` (was `childPlatform.…`).
+- `HmacSecret` on `BrantaApiOptions` is no longer `[Obsolete]`. Platforms with Require HMAC on need it to sign `AddPaymentAsync`. Only the per-client parent-platform flow is deprecated; a shared `ApiKey` with `SetBrand` replaces it.
+
+### Deprecated
+- `PaymentBuilder.SetChildPlatform` and `Payment.ChildPlatform` are `[Obsolete]`. Use `SetBrand` and `Brand`. They keep working.
 
 ### Documentation
 - README documents HMAC signing and links the developer docs.

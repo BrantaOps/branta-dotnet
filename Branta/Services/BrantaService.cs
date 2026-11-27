@@ -177,7 +177,7 @@ public class BrantaService : IBrantaService
         PlatformLogoUrl = payment.PlatformLogoUrl,
         PlatformLogoLightUrl = payment.PlatformLogoLightUrl,
         ParentPlatform = CopyPlatform(payment.ParentPlatform),
-        ChildPlatform = CopyPlatform(payment.ChildPlatform),
+        Brand = CopyPlatform(payment.Brand),
         BtcPayServerPluginVersion = payment.BtcPayServerPluginVersion,
         IsMetadataDecrypted = payment.IsMetadataDecrypted,
     };
