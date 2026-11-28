@@ -94,4 +94,34 @@ public class PublicApiTests
         Assert.Null(type.GetField("EvmTokenRails", BindingFlags.Public | BindingFlags.Static));
         Assert.Null(type.GetMethod("IsSecretKeyAddress", BindingFlags.Public | BindingFlags.Static));
     }
+
+    [Fact]
+    public void Brand_IsPublic_AndChildPlatformIsObsolete()
+    {
+        var builder = typeof(PaymentBuilder);
+        var setBrand = builder.GetMethod("SetBrand", [typeof(string), typeof(string), typeof(string)]);
+        Assert.NotNull(setBrand);
+        Assert.Equal(typeof(PaymentBuilder), setBrand!.ReturnType);
+        Assert.Null(setBrand.GetCustomAttribute<ObsoleteAttribute>());
+
+        var setChild = builder.GetMethod("SetChildPlatform", [typeof(string), typeof(string), typeof(string)]);
+        Assert.NotNull(setChild);
+        var methodObsolete = setChild!.GetCustomAttribute<ObsoleteAttribute>();
+        Assert.NotNull(methodObsolete);
+        Assert.Equal("Use SetBrand", methodObsolete!.Message);
+        Assert.False(methodObsolete.IsError);
+
+        var brand = typeof(Payment).GetProperty("Brand");
+        Assert.NotNull(brand);
+        Assert.Equal(typeof(Platform), brand!.PropertyType);
+        Assert.Null(brand.GetCustomAttribute<ObsoleteAttribute>());
+
+        var child = typeof(Payment).GetProperty("ChildPlatform");
+        Assert.NotNull(child);
+        Assert.Equal(typeof(Platform), child!.PropertyType);
+        var propObsolete = child.GetCustomAttribute<ObsoleteAttribute>();
+        Assert.NotNull(propObsolete);
+        Assert.Equal("Use Brand", propObsolete!.Message);
+        Assert.False(propObsolete.IsError);
+    }
 }

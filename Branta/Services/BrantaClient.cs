@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Branta;
 
@@ -20,8 +21,23 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { SuppressChildPlatformOnWrite } }
     };
+
+    // The wire carries `brand` only. `child_platform` is read from responses (the deprecated alias) and never written.
+    private static void SuppressChildPlatformOnWrite(JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Type != typeof(Payment)) return;
+
+        foreach (var property in typeInfo.Properties)
+        {
+            if (property.Name == "child_platform")
+            {
+                property.ShouldSerialize = static (_, _) => false;
+            }
+        }
+    }
 
     public async Task<List<Payment>> GetPaymentsAsync(string destinationValue, BrantaApiOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -178,8 +194,8 @@ internal class BrantaClient(IHttpClientFactory httpClientFactory, IOptions<Brant
             CheckLogoUrl(payment.PlatformLogoLightUrl, "platformLogoLightUrl", baseOrigin);
             CheckLogoUrl(payment.ParentPlatform?.LogoUrl, "parentPlatform.logoUrl", baseOrigin);
             CheckLogoUrl(payment.ParentPlatform?.LogoLightUrl, "parentPlatform.logoLightUrl", baseOrigin);
-            CheckLogoUrl(payment.ChildPlatform?.LogoUrl, "childPlatform.logoUrl", baseOrigin);
-            CheckLogoUrl(payment.ChildPlatform?.LogoLightUrl, "childPlatform.logoLightUrl", baseOrigin);
+            CheckLogoUrl(payment.Brand?.LogoUrl, "brand.logoUrl", baseOrigin);
+            CheckLogoUrl(payment.Brand?.LogoLightUrl, "brand.logoLightUrl", baseOrigin);
         }
     }
 

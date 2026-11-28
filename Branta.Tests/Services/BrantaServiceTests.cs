@@ -1285,4 +1285,56 @@ public class BrantaServiceTests
         Assert.Equal(decryptedMetadata, result.Payments![0].Metadata);
         Assert.Equal("Invoice #123", result.Payments[0].Description);
     }
+
+    [Fact]
+    public async Task AddPayment_Brand_CopyCarriesBrand_AndCallerUnchanged()
+    {
+        Payment? posted = null;
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted = p)
+            .ReturnsAsync(() => posted);
+
+        var payment = new PaymentBuilder()
+            .AddDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+            .SetBrand("Acme", "https://a/x.png", "https://a/y.png")
+            .Build();
+        var originalBrand = payment.Brand;
+
+        await _service.AddPaymentAsync(payment);
+
+        Assert.NotSame(payment, posted);
+        Assert.NotSame(originalBrand, posted!.Brand);
+        Assert.Equal("Acme", posted.Brand!.Name);
+        Assert.Equal("https://a/x.png", posted.Brand.LogoUrl);
+        Assert.Equal("https://a/y.png", posted.Brand.LogoLightUrl);
+        Assert.Same(originalBrand, payment.Brand);
+        Assert.Equal(BitcoinAddress, payment.Destinations[0].Value);
+    }
+
+#pragma warning disable CS0618 // Deprecated ChildPlatform under test.
+    [Fact]
+    public async Task AddPayment_OldStyleChildPlatform_CopyIsNormalizedToBrand_AndCallerUnchanged()
+    {
+        Payment? posted = null;
+        _clientMock
+            .Setup(c => c.PostPaymentAsync(It.IsAny<Payment>(), It.IsAny<BrantaApiOptions?>(), It.IsAny<CancellationToken>()))
+            .Callback<Payment, BrantaApiOptions?, CancellationToken>((p, _, _) => posted = p)
+            .ReturnsAsync(() => posted);
+
+        var payment = new Payment
+        {
+            Destinations = [new Destination { Value = BitcoinAddress, Type = DestinationType.BitcoinAddress, Id = "zk1" }],
+            ChildPlatform = new Platform { Name = "Acme" }
+        };
+        var originalChild = payment.ChildPlatform;
+
+        await _service.AddPaymentAsync(payment);
+
+        Assert.Equal("Acme", posted!.Brand!.Name);
+        Assert.NotSame(originalChild, posted.Brand);
+        Assert.Same(originalChild, payment.ChildPlatform);
+        Assert.Same(originalChild, payment.Brand);
+    }
+#pragma warning restore CS0618
 }

@@ -167,6 +167,51 @@ public class PaymentBuilderTests
     }
 
     [Fact]
+    public void SetBrand_SetsName()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetBrand("Acme")
+            .Build();
+
+        Assert.Equal("Acme", payment.Brand!.Name);
+    }
+
+    [Fact]
+    public void SetBrand_OptionalUrlsDefaultNull()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetBrand("Acme")
+            .Build();
+
+        Assert.Null(payment.Brand!.LogoUrl);
+        Assert.Null(payment.Brand.LogoLightUrl);
+    }
+
+    [Fact]
+    public void SetBrand_WithUrls_SetsUrls()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetBrand("Acme", logoUrl: "https://example.com/logo.png", logoLightUrl: "https://example.com/logo-light.png")
+            .Build();
+
+        Assert.Equal("https://example.com/logo.png", payment.Brand!.LogoUrl);
+        Assert.Equal("https://example.com/logo-light.png", payment.Brand.LogoLightUrl);
+    }
+
+    [Fact]
+    public void SetBrand_ReturnsBuilder()
+    {
+        var builder = new PaymentBuilder().AddDestination("bc1qtest");
+        var result = builder.SetBrand("Acme");
+
+        Assert.Same(builder, result);
+    }
+
+#pragma warning disable CS0618 // SetChildPlatform / ChildPlatform are the deprecated aliases under test.
+    [Fact]
     public void SetChildPlatform_SetsName()
     {
         var payment = new PaymentBuilder()
@@ -209,6 +254,34 @@ public class PaymentBuilderTests
 
         Assert.Same(builder, result);
     }
+
+    [Fact]
+    public void SetChildPlatform_WritesBrand()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetChildPlatform("Acme", "https://example.com/a.png", "https://example.com/b.png")
+            .Build();
+
+        Assert.Equal("Acme", payment.Brand!.Name);
+        Assert.Equal("https://example.com/a.png", payment.Brand.LogoUrl);
+        Assert.Equal("https://example.com/b.png", payment.Brand.LogoLightUrl);
+    }
+
+    [Fact]
+    public void SetBrandAfterSetChildPlatform_BrandWins()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("bc1qtest")
+            .SetChildPlatform("Old")
+            .SetBrand("New")
+            .Build();
+
+        Assert.Equal("New", payment.Brand!.Name);
+        Assert.Equal("New", payment.ChildPlatform!.Name);
+    }
+
+#pragma warning restore CS0618
 
     [Fact]
     public void SetBtcPayServerPluginVersion_SetsVersion()

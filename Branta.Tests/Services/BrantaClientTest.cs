@@ -31,13 +31,16 @@ public class BrantaClientTest
     {
         public List<HttpRequestMessage> Requests { get; } = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public List<string> Bodies { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
-            return Task.FromResult(new HttpResponseMessage(status)
+            Bodies.Add(request.Content == null ? "" : await request.Content.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(status)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")
-            });
+            };
         }
     }
 
@@ -125,23 +128,23 @@ public class BrantaClientTest
     }
 
     [Fact]
-    public async Task GetPaymentsAsync_MismatchedChildPlatformLogoUrl_Throws()
+    public async Task GetPaymentsAsync_MismatchedBrandLogoUrl_Throws()
     {
         var json = $$"""[{"destinations": {{Destinations}}, "child_platform": {"logo_url": "{{OtherOrigin}}/evil.png"} }]""";
         var client = CreateClient(json);
 
         var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => client.GetPaymentsAsync("value"));
-        Assert.Contains("childPlatform.logoUrl", ex.Message);
+        Assert.Contains("brand.logoUrl", ex.Message);
     }
 
     [Fact]
-    public async Task GetPaymentsAsync_MismatchedChildPlatformLogoLightUrl_Throws()
+    public async Task GetPaymentsAsync_MismatchedBrandLogoLightUrl_Throws()
     {
         var json = $$"""[{"destinations": {{Destinations}}, "child_platform": {"logo_light_url": "{{OtherOrigin}}/evil.png"} }]""";
         var client = CreateClient(json);
 
         var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => client.GetPaymentsAsync("value"));
-        Assert.Contains("childPlatform.logoLightUrl", ex.Message);
+        Assert.Contains("brand.logoLightUrl", ex.Message);
     }
 
     [Fact]
@@ -342,6 +345,159 @@ public class BrantaClientTest
         var value = Assert.Single(request.Headers.GetValues("X-Branta-SDK"));
         Assert.Equal($"dotnet/{ProjectVersion()}", value);
     }
+
+    private static async Task<string> PostBodyAsync(Payment payment)
+    {
+        var handler = new CapturingHandler(HttpStatusCode.OK, "");
+        var client = CreateClient(handler);
+
+        await client.PostPaymentAsync(payment, new BrantaApiOptions { ApiKey = "key" });
+
+        return Assert.Single(handler.Bodies);
+    }
+
+    private static Payment NewPayment() => new()
+    {
+        Destinations = [new Destination { Value = "test-destination" }]
+    };
+
+    private const string AcmeBrandJson = """{"name":"Acme","logo_url":"https://a/x.png","logo_light_url":"https://a/y.png"}""";
+
+    [Fact]
+    public async Task PostPaymentAsync_SetBrand_SendsBrandOnly()
+    {
+        var payment = new PaymentBuilder()
+            .AddDestination("test-destination")
+            .SetBrand("Acme", "https://a/x.png", "https://a/y.png")
+            .Build();
+
+        var body = await PostBodyAsync(payment);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(body);
+        Assert.Equal(AcmeBrandJson, doc.RootElement.GetProperty("brand").GetRawText());
+        Assert.False(doc.RootElement.TryGetProperty("child_platform", out _));
+    }
+
+#pragma warning disable CS0618 // Deprecated child platform aliases under test.
+    [Fact]
+    public async Task PostPaymentAsync_SetChildPlatform_SendsSameBodyAsSetBrand()
+    {
+        var viaBrand = new PaymentBuilder().AddDestination("d").SetBrand("Acme", "https://a/x.png", "https://a/y.png").Build();
+        var viaAlias = new PaymentBuilder().AddDestination("d").SetChildPlatform("Acme", "https://a/x.png", "https://a/y.png").Build();
+        viaBrand.Destinations[0].Id = viaAlias.Destinations[0].Id = "id";
+
+        var brandBody = await PostBodyAsync(viaBrand);
+        var aliasBody = await PostBodyAsync(viaAlias);
+
+        Assert.Equal(brandBody, aliasBody);
+        Assert.DoesNotContain("child_platform", aliasBody);
+    }
+
+    [Fact]
+    public async Task PostPaymentAsync_OnlyDeprecatedChildPlatformProperty_SerializesAsBrand()
+    {
+        var payment = NewPayment();
+        payment.ChildPlatform = new Platform { Name = "Acme", LogoUrl = "https://a/x.png", LogoLightUrl = "https://a/y.png" };
+
+        var body = await PostBodyAsync(payment);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(body);
+        Assert.Equal(AcmeBrandJson, doc.RootElement.GetProperty("brand").GetRawText());
+        Assert.DoesNotContain("child_platform", body);
+    }
+
+    [Fact]
+    public async Task PostPaymentAsync_BothBrandAndChildPlatform_BrandWins()
+    {
+        var payment = NewPayment();
+        payment.ChildPlatform = new Platform { Name = "Old" };
+        payment.Brand = new Platform { Name = "New" };
+
+        var body = await PostBodyAsync(payment);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(body);
+        Assert.Equal("""{"name":"New"}""", doc.RootElement.GetProperty("brand").GetRawText());
+        Assert.DoesNotContain("child_platform", body);
+        Assert.DoesNotContain("Old", body);
+    }
+
+    [Fact]
+    public async Task PostPaymentAsync_NoBrand_OmitsBothKeys()
+    {
+        var body = await PostBodyAsync(NewPayment());
+
+        Assert.DoesNotContain("brand", body);
+        Assert.DoesNotContain("child_platform", body);
+    }
+
+    [Fact]
+    public async Task PostPaymentAsync_BrandWithOnlyName_OmitsNullUrls()
+    {
+        var payment = new PaymentBuilder().AddDestination("d").SetBrand("Acme").Build();
+
+        var body = await PostBodyAsync(payment);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(body);
+        Assert.Equal("""{"name":"Acme"}""", doc.RootElement.GetProperty("brand").GetRawText());
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_BrandKey_PopulatesBrandAndMirrorsChildPlatform()
+    {
+        var client = CreateClient($$$"""[{"destinations": {{{Destinations}}}, "brand": {"name": "Acme", "logo_url": "{{{SameOrigin}}}/a.png"} }]""");
+
+        var payment = Assert.Single(await client.GetPaymentsAsync("value"));
+
+        Assert.Equal("Acme", payment.Brand!.Name);
+        Assert.Equal($"{SameOrigin}/a.png", payment.Brand.LogoUrl);
+        Assert.Equal("Acme", payment.ChildPlatform!.Name);
+        Assert.Equal($"{SameOrigin}/a.png", payment.ChildPlatform.LogoUrl);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_ChildPlatformKey_PopulatesBrandAndChildPlatform()
+    {
+        var client = CreateClient($$$"""[{"destinations": {{{Destinations}}}, "child_platform": {"name": "Acme", "logo_light_url": "{{{SameOrigin}}}/b.png"} }]""");
+
+        var payment = Assert.Single(await client.GetPaymentsAsync("value"));
+
+        Assert.Equal("Acme", payment.Brand!.Name);
+        Assert.Equal($"{SameOrigin}/b.png", payment.Brand.LogoLightUrl);
+        Assert.Equal("Acme", payment.ChildPlatform!.Name);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_BothKeys_BrandWins()
+    {
+        var client = CreateClient($$$"""[{"destinations": {{{Destinations}}}, "child_platform": {"name": "Old"}, "brand": {"name": "New"} }]""");
+
+        var payment = Assert.Single(await client.GetPaymentsAsync("value"));
+
+        Assert.Equal("New", payment.Brand!.Name);
+        Assert.Equal("New", payment.ChildPlatform!.Name);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_NoBrandKeys_BothNull()
+    {
+        var client = CreateClient($$"""[{"destinations": {{Destinations}} }]""");
+
+        var payment = Assert.Single(await client.GetPaymentsAsync("value"));
+
+        Assert.Null(payment.Brand);
+        Assert.Null(payment.ChildPlatform);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_ChildPlatformKeyWithMismatchedLogo_Throws()
+    {
+        var json = $$"""[{"destinations": {{Destinations}}, "child_platform": {"logo_url": "{{OtherOrigin}}/evil.png"} }]""";
+        var client = CreateClient(json);
+
+        var ex = await Assert.ThrowsAsync<BrantaPaymentException>(() => client.GetPaymentsAsync("value"));
+        Assert.Contains("brand.logoUrl", ex.Message);
+    }
+#pragma warning restore CS0618
 
     [Fact]
     public async Task GetPaymentsAsync_DoesNotSendSdkHeader()

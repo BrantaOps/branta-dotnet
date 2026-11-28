@@ -59,6 +59,19 @@ var posted = await service.AddPaymentAsync(payment);
 
 `AddPaymentAsync` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
 
+### Brand
+
+A platform that shares one API key across payees can tag a payment with the payee's brand: a name plus optional logo URLs.
+
+```csharp
+var payment = new PaymentBuilder()
+    .AddDestination("bc1q…", DestinationType.BitcoinAddress)
+    .SetBrand("Acme", logoUrl: "https://…/logo.png", logoLightUrl: "https://…/logo-light.png")
+    .Build();
+```
+
+`SetChildPlatform` and `Payment.ChildPlatform` are the deprecated old names. They still work (marked `[Obsolete]`) and map to `SetBrand` / `Payment.Brand`. The SDK sends `brand` on the wire.
+
 ### HMAC signing
 
 If Branta enabled Require HMAC on your platform, create a Secret in Guardrail and set it as `HmacSecret`. The service signs each `AddPaymentAsync`. Keep it server-side. See [HMAC signing](https://developer.branta.pro/setup/receive/hmac-signing).

@@ -52,11 +52,17 @@ public class PaymentBuilder
         return this;
     }
 
-    public PaymentBuilder SetChildPlatform(string name, string? logoUrl = null, string? logoLightUrl = null)
+    public PaymentBuilder SetBrand(string name, string? logoUrl = null, string? logoLightUrl = null)
     {
-        payment.ChildPlatform = new Platform { Name = name, LogoUrl = logoUrl, LogoLightUrl = logoLightUrl };
+        payment.Brand = new Platform { Name = name, LogoUrl = logoUrl, LogoLightUrl = logoLightUrl };
 
         return this;
+    }
+
+    [Obsolete("Use SetBrand")]
+    public PaymentBuilder SetChildPlatform(string name, string? logoUrl = null, string? logoLightUrl = null)
+    {
+        return SetBrand(name, logoUrl, logoLightUrl);
     }
 
     public PaymentBuilder SetBtcPayServerPluginVersion(string version)

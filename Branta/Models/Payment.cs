@@ -26,9 +26,29 @@ public class Payment
 
     public Platform? ParentPlatform { get; set; }
 
-    public Platform? ChildPlatform { get; set; }
+    /// <summary>
+    /// The payee a shared-key platform tags the payment with. Sent on the wire as <c>brand</c>.
+    /// Reads fall back to the deprecated <see cref="ChildPlatform"/> when no brand is set.
+    /// </summary>
+    public Platform? Brand
+    {
+        get => _brand ?? _childPlatform;
+        set => _brand = value;
+    }
+
+    /// <summary>Deprecated name for <see cref="Brand"/>. Never sent on the wire. Reads return <see cref="Brand"/> when set.</summary>
+    [Obsolete("Use Brand")]
+    public Platform? ChildPlatform
+    {
+        get => _brand ?? _childPlatform;
+        set => _childPlatform = value;
+    }
 
     public string? BtcPayServerPluginVersion { get; set; }
+
+    private Platform? _brand;
+
+    private Platform? _childPlatform;
 
     [JsonIgnore]
     internal bool IsMetadataDecrypted { get; set; }
